@@ -15,6 +15,15 @@ const (
 	UnAvailable Availablity = "unavailable"
 )
 
+type Access_Type string
+
+const (
+	Admin_Access   Access_Type = "admin"
+	Manager_Access Access_Type = "manager"
+	Guest_Access   Access_Type = "guest"
+	Driver_Access  Access_Type = "driver"
+)
+
 // ? GuestFeedback enums
 
 type Feedback_Type string

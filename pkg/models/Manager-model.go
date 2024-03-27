@@ -21,8 +21,9 @@ type Manager struct {
 	Token         string             `bson:"token,omitempty" json:"token,omitempty"`
 	Refresh_Token string             `bson:"refresh_token,omitempty" json:"refresh_token,omitempty"`
 	// Image         string             `bson:"image,omitempty" json:"image,omitempty"`
-	Created_at time.Time `bson:"created_at,omitempty" json:"created_at,omitempty"`
-	Updated_at time.Time `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
+	Access_Type Access_Type `bson:"access_type,omitempty" json:"access_type,omitempty"`
+	Created_at  time.Time   `bson:"created_at,omitempty" json:"created_at,omitempty"`
+	Updated_at  time.Time   `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
 }
 
 // Manager has only one profile photo

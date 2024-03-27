@@ -6,6 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// * No Need of password beacuse we use Email authentication by Google using Firebase
 type Guest struct {
 	ID            primitive.ObjectID `bson:"_id"`
 	Guest_id      string             `bson:"guest_id,omitempty" json:"guest_id,omitempty"`
@@ -18,9 +19,10 @@ type Guest struct {
 	Country       string             `bson:"country,omitempty" json:"country,omitempty"`
 	Token         string             `bson:"token,omitempty" json:"token,omitempty"`
 	Refresh_Token string             `bson:"refresh_token,omitempty" json:"refresh_token,omitempty"`
-	// Image         string             `bson:"image,omitempty" json:"image,omitempty"`
-	Created_at time.Time `bson:"created_at,omitempty" json:"created_at,omitempty"`
-	Updated_at time.Time `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
+	// Image         string             `bson:"image,omitempty" json:"image,omitempty"
+	Access_Type Access_Type `bson:"access_type,omitempty" json:"access_type,omitempty"`
+	Created_at  time.Time   `bson:"created_at,omitempty" json:"created_at,omitempty"`
+	Updated_at  time.Time   `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
 }
 
 // Guest has only one profile photot
