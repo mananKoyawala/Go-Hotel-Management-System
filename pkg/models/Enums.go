@@ -66,3 +66,11 @@ const (
 	Room_Available   string = "available"
 	Room_Unavailable string = "occupied"
 )
+
+// ? PickupService enums
+type PickupStatus string
+
+const (
+	Completed    PickupStatus = "completed"
+	NotCompleted PickupStatus = "not_completed"
+)

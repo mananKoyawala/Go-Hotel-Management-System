@@ -19,6 +19,7 @@ type Branch struct {
 	Country     string             `bson:"country,omitempty" json:"country,omitempty"`
 	Pincode     string             `bson:"pincode,omitempty" json:"pincode,omitempty"`
 	Status      Status             `bson:"status,omitempty" json:"status,omitempty"`
+	Total_Rooms int                `bosn:"total_rooms,omitempty" json:"total_rooms,omitempty"`
 	// Images      []string           `bson:"images,omitempty" json:"images,omitempty"`
 	Created_at time.Time `bson:"created_at,omitempty" json:"created_at,omitempty"`
 	Updated_at time.Time `bson:"updated_at,omitempty" json:"updated_at,omitempty"`

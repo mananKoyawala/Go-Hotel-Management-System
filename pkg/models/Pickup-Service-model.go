@@ -15,6 +15,7 @@ type PickupService struct {
 	Pickup_Location   string             `bson:"pickup_location,omitempty" json:"pickup_location,omitempty"`
 	Pickup_Time       string             `bson:"pickup_time,omitempty" json:"pickup_time,omitempty"`
 	Amount            float64            `bson:"amount,omitempty" json:"amount,omitempty"`
+	Status            PickupStatus       `bson:"status,omitempty" json:"status,omitempty"`
 	Created_at        time.Time          `bson:"created_at,omitempty" json:"created_at,omitempty"`
 	Updated_at_at     time.Time          `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
 }
