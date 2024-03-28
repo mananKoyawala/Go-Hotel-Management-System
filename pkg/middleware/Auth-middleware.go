@@ -42,7 +42,8 @@ func Authentication(access_type ...models.Access_Type) gin.HandlerFunc {
 		c.Set("email", claims.Email)
 		c.Set("first_name", claims.First_name)
 		c.Set("last_name", claims.Last_name)
-		c.Set("uid", claims.Uid)
+		c.Set("id", claims.Id)
+		c.Set("access_type", claims.Access_Type)
 		c.Next()
 	}
 }
