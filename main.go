@@ -1,13 +1,18 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mananKoyawala/hotel-management-system/pkg/database"
 	"github.com/mananKoyawala/hotel-management-system/pkg/routes"
 )
 
 func main() {
+
+	client := database.DBInstance()
+	defer client.Disconnect(context.Background())
 
 	// GET PORT
 	PORT := os.Getenv("PORT")
@@ -24,6 +29,7 @@ func main() {
 	})
 
 	routes.AdminRoutes(server)
+	routes.ManagerRoutes(server)
 
 	server.Run(":" + PORT)
 }

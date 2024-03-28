@@ -10,5 +10,6 @@ func AdminRoutes(r *gin.Engine) {
 	{
 		// only access to admin
 		admin.GET("/login", controllers.AdminLogin()) // controllers.AdminController()
+		admin.POST("/create", controllers.CreateAdmin())
 	}
 }

@@ -14,6 +14,7 @@ type Manager struct {
 	Age           int                `bson:"age,omitempty" json:"age,omitempty"`
 	Phone         int                `bson:"phone,omitempty" json:"phone,omitempty"`
 	Email         string             `bson:"email,omitempty" json:"email,omitempty"`
+	Password      string             `bson:"Password,omitempty" json:"Password,omitempty"`
 	Gender        string             `bson:"gender,omitempty" json:"gender,omitempty"`
 	Salary        float64            `bson:"salary,omitempty" json:"salary,omitempty"`
 	Aadhar_Number string             `bson:"aadhar_number,omitempty" json:"aadhar_number,omitempty"`
