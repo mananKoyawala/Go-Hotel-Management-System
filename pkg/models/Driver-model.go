@@ -20,6 +20,7 @@ type Driver struct {
 	Availablity      Availablity        `bson:"available,omitempty" json:"available,omitempty"` // available or not available (on the drive)
 	Pickup_Location  string             `bson:"pickup_location,omitempty" json:"pickup_location,omitempty"`
 	Salary           float64            `bson:"salary,omitempty" json:"salary,omitempty"`
+	Email            string             `bson:"email,omitempty" json:"email,omitempty"`
 	Phone            int                `bson:"phone,omitempty" json:"phone,omitempty"`
 	Token            string             `bson:"token,omitempty" json:"token,omitempty"`
 	Refresh_Token    string             `bson:"refresh_token,omitempty" json:"refresh_token,omitempty"`

@@ -5,6 +5,7 @@ import "github.com/gin-gonic/gin"
 func ManagerRoutes(r *gin.Engine) {
 	manager := r.Group("/manager")
 	{
+		// access to admin
 		manager.GET("/getall") // controllers.LoginController()
 		manager.GET("/get/:id")
 		manager.POST("/create")

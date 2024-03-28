@@ -5,6 +5,7 @@ import "github.com/gin-gonic/gin"
 func ReservationRoutes(r *gin.Engine) {
 	reservation := r.Group("/reservation")
 	{
+		// access to manager, user
 		reservation.GET("/getall")
 		reservation.GET("/get")
 		reservation.POST("/create")
