@@ -30,6 +30,7 @@ func main() {
 
 	routes.AdminRoutes(server)
 	routes.ManagerRoutes(server)
+	routes.BranchRoutes(server)
 
 	server.Run(":" + PORT)
 }

@@ -233,11 +233,11 @@ func UpdateManagerStatus() gin.HandlerFunc {
 			newStatus = models.Active
 		}
 
-		Updated_at, _ := helpers.GetTime()
+		updated_at, _ := helpers.GetTime()
 		updateObj := bson.D{
 			{Key: "$set", Value: bson.D{
 				{Key: "status", Value: newStatus},
-				{Key: "updated_at", Value: Updated_at},
+				{Key: "updated_at", Value: updated_at},
 			}},
 		}
 
@@ -281,6 +281,7 @@ func validateManager(manager models.Manager) (string, bool) {
 	return "", true
 }
 
+// * DONE
 func GetManagers() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := helpers.GetContext()
@@ -328,6 +329,7 @@ func GetManagers() gin.HandlerFunc {
 						{Key: "email", Value: "$$data.email"},
 						{Key: "gender", Value: "$$data.gender"},
 						{Key: "salary", Value: "$$data.salary"},
+						{Key: "status", Value: "$$data.status"},
 					}},
 				}},
 			}},
@@ -364,6 +366,6 @@ func GetManagers() gin.HandlerFunc {
 			return
 		}
 
-		utils.Response(c, allManagers)
+		utils.Response(c, allManagers[0])
 	}
 }

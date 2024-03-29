@@ -1,17 +1,23 @@
 package routes
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/mananKoyawala/hotel-management-system/pkg/controllers"
+	"github.com/mananKoyawala/hotel-management-system/pkg/middleware"
+	"github.com/mananKoyawala/hotel-management-system/pkg/models"
+)
 
 func BranchRoutes(r *gin.Engine) {
 	branch := r.Group("branch")
 	{
 		// access to all
-		branch.GET("/getall")
-		branch.GET("/get/:id")
+		branch.GET("/getall", controllers.GetBranches())
+		branch.GET("/get/:id", controllers.GetBranch())
 		// access to only admin
-		branch.POST("/create")
-		branch.PUT("/update-all/:id")
-		branch.PATCH("/update-branch-status/:id")
-		branch.DELETE("/delete/:id")
+		r.Use(middleware.Authentication(models.Admin_Access))
+		branch.POST("/create", controllers.CreateBranch())
+		branch.PUT("/update-all/:id", controllers.UpdateBranchDetails())
+		branch.PATCH("/update-branch-status/:id", controllers.UpdateBranchStatus())
+		branch.DELETE("/delete/:id", controllers.DeleteBranch())
 	}
 }

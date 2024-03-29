@@ -12,12 +12,12 @@ type Branch struct {
 	Managet_id  string             `bson:"managet_id,omitempty" json:"managet_id,omitempty"`
 	Branch_Name string             `bson:"branch_name,omitempty" json:"branch_name,omitempty"`
 	Address     string             `bson:"address,omitempty" json:"address,omitempty"`
-	Phone       string             `bson:"phone,omitempty" json:"phone,omitempty"`
+	Phone       int                `bson:"phone,omitempty" json:"phone,omitempty"`
 	Email       string             `bson:"email,omitempty" json:"email,omitempty"`
 	City        string             `bson:"city,omitempty" json:"city,omitempty"`
 	State       string             `bson:"state,omitempty" json:"state,omitempty"`
 	Country     string             `bson:"country,omitempty" json:"country,omitempty"`
-	Pincode     string             `bson:"pincode,omitempty" json:"pincode,omitempty"`
+	Pincode     int                `bson:"pincode,omitempty" json:"pincode,omitempty"`
 	Status      Status             `bson:"status,omitempty" json:"status,omitempty"`
 	Total_Rooms int                `bosn:"total_rooms,omitempty" json:"total_rooms,omitempty"`
 	// Images      []string           `bson:"images,omitempty" json:"images,omitempty"`
