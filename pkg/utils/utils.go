@@ -24,9 +24,9 @@ func Error(c *gin.Context, statusCode int, errorMessage string) {
 	c.JSON(statusCode, gin.H{"error": errorMessage})
 } // to return error
 
-func Message(c *gin.Context, statusCode int, message string) {
+func Message(c *gin.Context, message string) {
 	c.Header("Content-Type", "application/json")
-	c.JSON(statusCode, gin.H{"message": message})
+	c.JSON(OK, gin.H{"message": message})
 } // to return messages
 
 func Response(c *gin.Context, data interface{}) {

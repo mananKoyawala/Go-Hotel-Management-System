@@ -35,6 +35,7 @@ func GenerateAllTokens(email, firstName, lastName, id, access_type string) (sign
 	}
 
 	refershClaims := &SignedDetails{
+		Access_Type: access_type,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(168)).Unix(),
 		},

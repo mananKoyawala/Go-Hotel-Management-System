@@ -17,14 +17,14 @@ type Manager struct {
 	Password      string             `bson:"Password,omitempty" json:"Password,omitempty"`
 	Gender        string             `bson:"gender,omitempty" json:"gender,omitempty"`
 	Salary        float64            `bson:"salary,omitempty" json:"salary,omitempty"`
-	Aadhar_Number string             `bson:"aadhar_number,omitempty" json:"aadhar_number,omitempty"`
+	Aadhar_Number int                `bson:"aadhar_number,omitempty" json:"aadhar_number,omitempty"`
 	Status        Status             `bson:"status,omitempty" json:"status,omitempty"`
 	Token         string             `bson:"token,omitempty" json:"token,omitempty"`
 	Refresh_Token string             `bson:"refresh_token,omitempty" json:"refresh_token,omitempty"`
+	Access_Type   Access_Type        `bson:"access_type,omitempty" json:"access_type,omitempty"`
+	Created_at    time.Time          `bson:"created_at,omitempty" json:"created_at,omitempty"`
+	Updated_at    time.Time          `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
 	// Image         string             `bson:"image,omitempty" json:"image,omitempty"`
-	Access_Type Access_Type `bson:"access_type,omitempty" json:"access_type,omitempty"`
-	Created_at  time.Time   `bson:"created_at,omitempty" json:"created_at,omitempty"`
-	Updated_at  time.Time   `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
 }
 
 // Manager has only one profile photo

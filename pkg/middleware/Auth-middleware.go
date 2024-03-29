@@ -24,16 +24,13 @@ func Authentication(access_type ...models.Access_Type) gin.HandlerFunc {
 			return
 		}
 
-		// here i will check claims string(claims.Access_Type)
-		matched := false
+		accessMap := make(map[models.Access_Type]bool)
 		for _, access := range access_type {
-			if access == models.Access_Type(claims.Access_Type) {
-				matched = true
-				break
-			}
+			accessMap[access] = true
 		}
 
-		if !matched {
+		// Check if the access type from claims matches any of the allowed access types
+		if !accessMap[models.Access_Type(claims.Access_Type)] {
 			utils.Error(c, utils.Unauthorized, "Unauthorized access")
 			c.Abort()
 			return
