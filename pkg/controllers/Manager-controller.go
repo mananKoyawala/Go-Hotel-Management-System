@@ -126,7 +126,7 @@ func CreateManager() gin.HandlerFunc {
 		manager.Manager_id = manager.ID.Hex()
 		manager.Created_at, _ = helpers.GetTime()
 		manager.Updated_at, _ = helpers.GetTime()
-		manager.Access_Type = models.Guest_Access
+		manager.Access_Type = models.Manager_Access
 		manager.Status = models.Active
 
 		// Generate Tokens

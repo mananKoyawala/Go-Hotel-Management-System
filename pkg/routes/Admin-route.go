@@ -8,7 +8,7 @@ import (
 func AdminRoutes(r *gin.Engine) {
 	admin := r.Group("/admin")
 	{
-		// only access to admin
+		// * Admin By Email Password
 		admin.GET("/login", controllers.AdminLogin())
 		// admin.POST("/create", controllers.CreateAdmin()) // This route only for testing purposes
 	}

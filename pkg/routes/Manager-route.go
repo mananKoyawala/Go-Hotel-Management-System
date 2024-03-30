@@ -4,18 +4,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/mananKoyawala/hotel-management-system/pkg/controllers"
 	"github.com/mananKoyawala/hotel-management-system/pkg/middleware"
-	"github.com/mananKoyawala/hotel-management-system/pkg/models"
 )
 
 func ManagerRoutes(r *gin.Engine) {
 	manager := r.Group("/manager")
 	{
-		// access to admin
-		r.Use(middleware.Authentication(models.Admin_Access))
+		// * Admin
+		r.Use(middleware.Authentication())
 		manager.GET("/getall", controllers.GetManagers())
 		manager.POST("/create", controllers.CreateManager())
 		manager.PATCH("/update-status/:id", controllers.UpdateManagerStatus())
-		r.Use(middleware.Authentication(models.Admin_Access, models.Manager_Access))
 		manager.PUT("/update-all/:id", controllers.UpdateManagerDetails())
 		manager.POST("/login", controllers.ManagerLoign())
 		manager.DELETE("/delete/:id", controllers.DeleteManager())

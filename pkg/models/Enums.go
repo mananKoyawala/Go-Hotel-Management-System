@@ -48,23 +48,24 @@ const (
 type Room_Type string
 
 const (
-	Single_Bad Room_Type = "single_bad"
-	Double_Bad Room_Type = "double_bad"
+	Single_Bad Room_Type = "single_bed"
+	Double_Bad Room_Type = "double_bed"
 	Suite      Room_Type = "suite"
 )
 
 type Cleaning_Status string
 
 const (
-	Cleaned Cleaning_Status = "cleaned"
-	Dirty   Cleaning_Status = "dirty"
+	Cleaned    Cleaning_Status = "cleaned"
+	Dirty      Cleaning_Status = "dirty"
+	InProgress Cleaning_Status = "inprogress"
 )
 
 type Room_Availability string
 
 const (
-	Room_Available   string = "available"
-	Room_Unavailable string = "occupied"
+	Room_Available   Room_Availability = "available"
+	Room_Unavailable Room_Availability = "occupied"
 )
 
 // ? PickupService enums

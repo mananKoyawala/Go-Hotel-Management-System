@@ -1,19 +1,22 @@
 package routes
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/mananKoyawala/hotel-management-system/pkg/controllers"
+	"github.com/mananKoyawala/hotel-management-system/pkg/middleware"
+)
 
 func RoomRoutes(r *gin.Engine) {
 	room := r.Group("/room")
 	{
-		// access to all
-		room.GET("/getall")
-		room.GET("/get/:id")
-		// access to manager of that branch
-		room.POST("/create")
-		room.PUT("/update-all/:id")
-		room.PATCH("/update-room-type/:id")
-		room.PATCH("/update-room-availability/:id")
-		room.PATCH("/update-cleaning-status/:id")
-		room.DELETE("/delete/:id")
+		// * ALL
+		r.Use(middleware.Authentication())
+		room.GET("/getall", controllers.GetRooms())
+		room.GET("/getall/:id", controllers.GetRoomsByBranch()) // By Branch id only
+		room.GET("/get/:id", controllers.GetRoom())
+		// * Manager
+		room.POST("/create", controllers.CreateRoom())
+		room.PUT("/update-all/:id", controllers.UpdateRoomDetails())
+		room.DELETE("/delete/:id", controllers.DeleteRoom())
 	}
 }

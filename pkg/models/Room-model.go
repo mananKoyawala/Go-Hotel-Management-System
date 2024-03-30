@@ -10,6 +10,7 @@ type Room struct {
 	ID                primitive.ObjectID `bson:"_id"`
 	Room_id           string             `bson:"room_id,omitempty" json:"room_id,omitempty"`
 	Branch_id         string             `bson:"branch_id,omitempty" json:"branch_id,omitempty"`
+	Room_Number       int                `bson:"room_number,omitempty" json:"room_number,omitempty"`
 	Room_Type         Room_Type          `bson:"room_type,omitempty" json:"room_type,omitempty"`
 	Room_Availability Room_Availability  `bson:"room_availability,omitempty" json:"room_availability,omitempty"`
 	Cleaning_Status   Cleaning_Status    `bson:"cleaning_status,omitempty" json:"cleaning_status,omitempty"`

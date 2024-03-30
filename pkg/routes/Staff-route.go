@@ -5,7 +5,7 @@ import "github.com/gin-gonic/gin"
 func StaffRoutes(r *gin.Engine) {
 	staff := r.Group("/staff")
 	{
-		// access to branch of that manager only
+		// * Manager
 		staff.GET("/getall")
 		staff.GET("/get/:id")
 		staff.POST("/create")

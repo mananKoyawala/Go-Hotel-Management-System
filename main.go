@@ -29,6 +29,7 @@ func main() {
 		c.JSON(200, gin.H{"status": "OK"})
 	})
 
+	routes.RoomRoutes(server)
 	routes.AdminRoutes(server)
 	routes.ManagerRoutes(server)
 	routes.BranchRoutes(server)
