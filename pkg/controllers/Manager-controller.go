@@ -411,3 +411,68 @@ func GetManagers() gin.HandlerFunc {
 		utils.Response(c, allManagers[0])
 	}
 }
+
+// * DONE
+func ResetManagerPassword() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+		var manager models.Manager
+
+		if err := c.BindJSON(&manager); err != nil {
+			utils.Error(c, utils.BadRequest, "Invalid JSON Format.")
+			return
+		}
+
+		// validate email & password
+		if !utils.ValidateEmail(manager.Email) {
+			utils.Error(c, utils.BadRequest, "Invalid Email Address")
+			return
+		}
+
+		msg, val := utils.ValidatePassword(manager.Password)
+		if !val {
+			utils.Error(c, utils.BadRequest, msg)
+			return
+		}
+
+		// check manager with email exist or not
+		_, err := database.ManagerCollection.Find(ctx, bson.M{"email": manager.Email})
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't find manager with email")
+			return
+		}
+
+		// hash password and update timestamp
+		password, err := helpers.HashPassword(manager.Password)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't generate hash password")
+			return
+		}
+		manager.Password = password
+		manager.Updated_at, _ = helpers.GetTime()
+
+		// update details
+		filter := bson.M{"email": manager.Email}
+		upsert := true
+		options := options.UpdateOptions{
+			Upsert: &upsert,
+		}
+
+		updateObj := bson.D{
+			{Key: "$set", Value: bson.D{
+				{Key: "Password", Value: manager.Password},
+				{Key: "updated_at", Value: manager.Updated_at},
+			}},
+		}
+
+		_, err = database.ManagerCollection.UpdateOne(ctx, filter, updateObj, &options)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't update password")
+			return
+		}
+
+		// return if success
+		utils.Message(c, "Password was updated")
+	}
+}

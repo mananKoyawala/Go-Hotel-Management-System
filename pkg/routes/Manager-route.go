@@ -8,18 +8,19 @@ import (
 )
 
 func ManagerRoutes(r *gin.Engine) {
-	r.Use(middleware.Authentication(models.Admin_Access))
 	manager := r.Group("/manager")
 	{
 		// access to admin
+		r.Use(middleware.Authentication(models.Admin_Access))
 		manager.GET("/getall", controllers.GetManagers())
-		manager.GET("/get/:id", controllers.GetManager())
-		manager.POST("/login", controllers.ManagerLoign())
 		manager.POST("/create", controllers.CreateManager())
+		manager.PATCH("/update-status/:id", controllers.UpdateManagerStatus())
+		r.Use(middleware.Authentication(models.Admin_Access, models.Manager_Access))
 		manager.PUT("/update-all/:id", controllers.UpdateManagerDetails())
-		manager.PUT("/update-status/:id", controllers.UpdateManagerStatus())
+		manager.POST("/login", controllers.ManagerLoign())
 		manager.DELETE("/delete/:id", controllers.DeleteManager())
-		// TODO : Password update
+		manager.GET("/get/:id", controllers.GetManager())
+		manager.PATCH("/update-password", controllers.ResetManagerPassword())
 	}
 }
 
