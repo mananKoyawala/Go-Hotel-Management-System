@@ -274,10 +274,47 @@ func DeleteManager() gin.HandlerFunc {
 	}
 }
 
+// * DONE
 func validateManager(manager models.Manager) (string, bool) {
-	if manager.Email == "" {
-		return "Email is required", false
+	if manager.First_Name == "" {
+		return "First name is required", false
 	}
+
+	if manager.Last_Name == "" {
+		return "Last name is required", false
+	}
+
+	if manager.Age < 18 || manager.Age > 65 {
+		return "Age must be between 18 to 65", false
+	}
+
+	if utils.CheckLength(manager.Phone, 10) {
+		return "Phone number must be 10 digits", false
+	}
+
+	if manager.Email == "" {
+		return "Email address required", false
+	} else if !utils.ValidateEmail(manager.Email) {
+		return "Invalid email address", false
+	}
+
+	msg, val := utils.ValidatePassword(manager.Password)
+	if !val {
+		return msg, false
+	}
+
+	if manager.Gender == "" {
+		return "Gender is required", false
+	}
+
+	if !utils.IsNonNegative(int(manager.Salary)) {
+		return "Salary must not 0 or negative", false
+	}
+
+	if utils.CheckLength(manager.Aadhar_Number, 12) {
+		return "Aadhar Number must be of 12 digits", false
+	}
+
 	return "", true
 }
 

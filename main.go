@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/mananKoyawala/hotel-management-system/pkg/database"
 	"github.com/mananKoyawala/hotel-management-system/pkg/routes"
+	_ "github.com/mananKoyawala/hotel-management-system/pkg/utils"
 )
 
 func main() {
