@@ -366,6 +366,11 @@ func GetManagers() gin.HandlerFunc {
 			return
 		}
 
+		if len(allManagers) == 0 {
+			utils.Response(c, []interface{}{})
+			return
+		}
+
 		utils.Response(c, allManagers[0])
 	}
 }

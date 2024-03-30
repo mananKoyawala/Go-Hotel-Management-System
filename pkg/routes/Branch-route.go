@@ -13,6 +13,7 @@ func BranchRoutes(r *gin.Engine) {
 		// access to all
 		branch.GET("/getall", controllers.GetBranches())
 		branch.GET("/get/:id", controllers.GetBranch())
+		branch.GET("/get-branch-by-status/:status", controllers.GetBranchesByStatus())
 		// access to only admin
 		r.Use(middleware.Authentication(models.Admin_Access))
 		branch.POST("/create", controllers.CreateBranch())

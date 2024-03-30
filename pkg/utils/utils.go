@@ -3,6 +3,7 @@ package utils
 import (
 	"log"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -33,3 +34,9 @@ func Response(c *gin.Context, data interface{}) {
 	c.Header("Content-Type", "application/json")
 	c.JSON(OK, data)
 } // to return response
+
+func ValidateEmail(email string) bool {
+	emailRegex := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
+	re := regexp.MustCompile(emailRegex)
+	return re.MatchString(email)
+}

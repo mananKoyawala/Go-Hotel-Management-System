@@ -9,7 +9,7 @@ import (
 type Branch struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty"`
 	Branch_id   string             `bson:"branch_id,omitempty" json:"branch_id,omitempty"`
-	Managet_id  string             `bson:"managet_id,omitempty" json:"managet_id,omitempty"`
+	Manager_id  string             `bson:"manager_id,omitempty" json:"manager_id,omitempty"`
 	Branch_Name string             `bson:"branch_name,omitempty" json:"branch_name,omitempty"`
 	Address     string             `bson:"address,omitempty" json:"address,omitempty"`
 	Phone       int                `bson:"phone,omitempty" json:"phone,omitempty"`

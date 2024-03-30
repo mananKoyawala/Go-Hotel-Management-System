@@ -73,6 +73,7 @@ func GetBranches() gin.HandlerFunc {
 					{Key: "as", Value: "data"},
 					{Key: "in", Value: bson.D{
 						{Key: "branch_id", Value: "$$data.branch_id"},
+						{Key: "manager_id", Value: "$$data.manager_id"},
 						{Key: "branch_name", Value: "$$data.branch_name"},
 						{Key: "address", Value: "$$data.address"},
 						{Key: "phone", Value: "$$data.phone"},
@@ -117,7 +118,10 @@ func GetBranches() gin.HandlerFunc {
 			utils.Error(c, utils.InternalServerError, "Error while getting the branches "+err.Error())
 			return
 		}
-
+		if len(allBranches) == 0 {
+			utils.Response(c, []interface{}{})
+			return
+		}
 		utils.Response(c, allBranches[0])
 	}
 }
@@ -313,11 +317,160 @@ func UpdateBranchStatus() gin.HandlerFunc {
 	}
 }
 
+// * DONE
 func validateBranchDetails(branch *models.Branch) (string, bool) {
 
 	if branch.Branch_Name == "" {
 		return "Branch name is required", false
 	}
 
+	if branch.Address == "" {
+		return "Address is required", false
+	}
+
+	if len(strconv.Itoa(branch.Phone)) != 10 {
+		return "Phone number must be 10 digits", false
+	}
+
+	if branch.Email == "" {
+		return "Email address required", false
+	} else if !utils.ValidateEmail(branch.Email) {
+		return "Invalid email address", false
+	}
+
+	if branch.City == "" {
+		return "City is required", false
+	}
+
+	if branch.State == "" {
+		return "State is required", false
+	}
+
+	if branch.Country == "" {
+		return "Country is required", false
+	}
+
+	if len(strconv.Itoa(branch.Pincode)) != 6 {
+		return "Pincode must be 6 digits", false
+	}
+
 	return "", true
+}
+
+// * DONE
+func GetBranchesByStatus() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+
+		code, err := strconv.Atoi(c.Param("status"))
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't parse status")
+			return
+		}
+		status := "active"
+		if code == 0 {
+			status = "inactive"
+		}
+
+		// 1 means active, 0 means inactive
+
+		recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
+		if err != nil || recordPerPage < 10 {
+			recordPerPage = 10
+		}
+
+		page, err := strconv.Atoi(c.Query("page"))
+		if err != nil || page < 1 {
+			page = 1
+		}
+
+		startIndex := (page - 1) * recordPerPage
+		// Here the aggregation pipeline started
+
+		stage := bson.A{
+			bson.D{
+				{Key: "$group",
+					Value: bson.D{
+						{Key: "_id", Value: primitive.Null{}},
+						{Key: "data", Value: bson.D{{Key: "$push", Value: "$$ROOT"}}},
+					},
+				},
+			},
+			bson.D{
+				{Key: "$project",
+					Value: bson.D{
+						{Key: "_id", Value: 0},
+						{Key: "branches",
+							Value: bson.D{
+								{Key: "$slice",
+									Value: bson.A{
+										bson.D{
+											{Key: "$map",
+												Value: bson.D{
+													{Key: "input",
+														Value: bson.D{
+															{Key: "$filter",
+																Value: bson.D{
+																	{Key: "input", Value: "$data"},
+																	{Key: "as", Value: "branch"},
+																	{Key: "cond",
+																		Value: bson.D{
+																			{Key: "$eq",
+																				Value: bson.A{
+																					"$$branch.status",
+																					status,
+																				},
+																			},
+																		},
+																	},
+																},
+															},
+														},
+													},
+													{Key: "as", Value: "data"},
+													{Key: "in", Value: bson.D{
+														{Key: `branch_id`, Value: "$$data.branch_id"},
+														{Key: "manager_id", Value: "$$data.manager_id"},
+														{Key: "branch_name", Value: "$$data.branch_name"},
+														{Key: "address", Value: "$$data.address"},
+														{Key: "phone", Value: "$$data.phone"},
+														{Key: "email", Value: "$$data.email"},
+														{Key: "city", Value: "$$data.city"},
+														{Key: "state", Value: "$$data.state"},
+														{Key: "country", Value: "$$data.country"},
+														{Key: "pincode", Value: "$$data.pincode"},
+														{Key: "status", Value: "$$data.status"},
+													}},
+												},
+											},
+										},
+										startIndex,
+										recordPerPage,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		result, err := database.BranchCollection.Aggregate(ctx, stage)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while fetching branches  "+err.Error())
+			return
+		}
+
+		var allBranches []bson.M
+		if err := result.All(ctx, &allBranches); err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while getting the branches "+err.Error())
+			return
+		}
+		if len(allBranches) == 0 {
+			utils.Response(c, []interface{}{})
+			return
+		}
+		utils.Response(c, allBranches[0])
+	}
 }
