@@ -29,6 +29,7 @@ func main() {
 		c.JSON(200, gin.H{"status": "OK"})
 	})
 
+	routes.StaffRoutes(server)
 	routes.FeedbackRoutes(server)
 	routes.GuestRoutes(server)
 	routes.RoomRoutes(server)
