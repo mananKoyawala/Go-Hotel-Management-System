@@ -15,8 +15,9 @@ type GuestFeedback struct {
 	Description        string             `bson:"description,omitempty" json:"description,omitempty"`
 	Feedback_Type      Feedback_Type      `bson:"feedback_type,omitempty" json:"feedback_type,omitempty"`
 	Resolution_Details string             `bson:"resolution_details,omitempty" json:"resolution_details,omitempty"` //Reply from hotel management
+	Status             FeedbackStatus     `bson:"status,omitempty" json:"status,omitempty"`
 	// Images             []string           `bson:"images,omitempty" json:"images,omitempty"`
-	Rating     int       `bson:"rating,omitempty" json:"rating,omitempty"`
+	Rating     string    `bson:"rating,omitempty" json:"rating,omitempty"`
 	Created_at time.Time `bson:"created_at,omitempty" json:"created_at,omitempty"`
 	Updated_at time.Time `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
 }

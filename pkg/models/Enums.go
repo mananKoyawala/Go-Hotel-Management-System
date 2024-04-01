@@ -75,3 +75,11 @@ const (
 	Completed    PickupStatus = "completed"
 	NotCompleted PickupStatus = "not_completed"
 )
+
+// ? Feedback enums
+type FeedbackStatus string
+
+const (
+	Resolved FeedbackStatus = "resolved"
+	Pending  FeedbackStatus = "pending"
+)
