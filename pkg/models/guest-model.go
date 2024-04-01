@@ -13,7 +13,7 @@ type Guest struct {
 	ID_Proof_Type ID_Proof_Type      `bson:"id_proof_type,omitempty" json:"id_proof_type,omitempty"`
 	First_Name    string             `bson:"first_name,omitempty" json:"first_name,omitempty"`
 	Last_Name     string             `bson:"last_name,omitempty" json:"last_name,omitempty"`
-	Phone         string             `bson:"phone,omitempty" json:"phone,omitempty"`
+	Phone         int                `bson:"phone,omitempty" json:"phone,omitempty"`
 	Email         string             `bson:"email,omitempty" json:"email,omitempty"`
 	Password      string             `bson:"Password,omitempty" json:"Password,omitempty"`
 	Gender        string             `bson:"gender,omitempty" json:"gender,omitempty"`
