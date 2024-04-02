@@ -29,6 +29,7 @@ func main() {
 		c.JSON(200, gin.H{"status": "OK"})
 	})
 
+	routes.PickupServiceRoutes(server)
 	routes.DriverRoutes(server)
 	routes.StaffRoutes(server)
 	routes.FeedbackRoutes(server)

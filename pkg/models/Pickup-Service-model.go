@@ -17,5 +17,5 @@ type PickupService struct {
 	Amount            float64            `bson:"amount,omitempty" json:"amount,omitempty"`
 	Status            PickupStatus       `bson:"status,omitempty" json:"status,omitempty"`
 	Created_at        time.Time          `bson:"created_at,omitempty" json:"created_at,omitempty"`
-	Updated_at_at     time.Time          `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
+	Updated_at        time.Time          `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
 }
