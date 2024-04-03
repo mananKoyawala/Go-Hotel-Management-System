@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -79,6 +80,7 @@ func GetRooms() gin.HandlerFunc {
 						{Key: "room_availability", Value: "$$data.room_availability"},
 						{Key: "cleaning_status", Value: "$$data.cleaning_status"},
 						{Key: "price", Value: "$$data.price"},
+						{Key: "capacity", Value: "$$data.capacity"},
 					}},
 				}},
 			}},
@@ -369,6 +371,10 @@ func validateRoomDetails(room models.Room) (string, bool) {
 		return "Room price must be integer.", false
 	}
 
+	if !utils.IsNonNegative(room.Capacity) {
+		return "Room capacity must be integer.", false
+	}
+
 	return "", true
 }
 
@@ -393,6 +399,10 @@ func validateUpdateRoomDetails(room models.Room) (string, bool) {
 
 	if !utils.IsNonNegative(int(room.Price)) {
 		return "Room price must be integer.", false
+	}
+
+	if !utils.IsNonNegative(room.Capacity) {
+		return "Room capacity must be integer.", false
 	}
 
 	return "", true
@@ -455,4 +465,84 @@ func checkRoomAvailability(avail models.Room_Availability) bool {
 	}
 
 	return true
+}
+
+func IncreaseRoomCapacity() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+
+		updated_at, _ := helpers.GetTime()
+		filter1 := bson.M{"room_type": models.Single_Bad}
+		filter2 := bson.M{"room_type": models.Double_Bad}
+		filter3 := bson.M{"room_type": models.Suite}
+		upsert := true
+		options := options.UpdateOptions{
+			Upsert: &upsert,
+		}
+
+		updateObj1 := bson.D{
+			{Key: "$set", Value: bson.D{
+				{Key: "capacity", Value: 1},
+				{Key: `updated_at`, Value: updated_at},
+			}},
+		}
+
+		updateObj2 := bson.D{
+			{Key: "$set", Value: bson.D{
+				{Key: "capacity", Value: 2},
+				{Key: `updated_at`, Value: updated_at},
+			}},
+		}
+
+		updateObj3 := bson.D{
+			{Key: "$set", Value: bson.D{
+				{Key: "capacity", Value: 5},
+				{Key: `updated_at`, Value: updated_at},
+			}},
+		}
+		_, err := database.RoomCollection.UpdateMany(ctx, filter1, updateObj1, &options)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't update the status for single bed.")
+			return
+		}
+
+		_, err = database.RoomCollection.UpdateMany(ctx, filter2, updateObj2, &options)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't update the status for double bed.")
+			return
+		}
+
+		_, err = database.RoomCollection.UpdateMany(ctx, filter3, updateObj3, &options)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't update the status for suite.")
+			return
+		}
+
+		utils.Message(c, "Updated")
+	}
+}
+
+func UpdateRoomAvailability(id string, avail models.Room_Availability) error {
+
+	updated_at, _ := helpers.GetTime()
+	updateObj := bson.D{
+		{Key: "$set", Value: bson.D{
+			{Key: "room_availability", Value: avail},
+			{Key: "updated_at", Value: updated_at},
+		}},
+	}
+
+	upsert := true
+	filter := bson.M{"room_id": id}
+	options := options.UpdateOptions{
+		Upsert: &upsert,
+	}
+
+	_, err := database.RoomCollection.UpdateOne(context.TODO(), filter, updateObj, &options)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

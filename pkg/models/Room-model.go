@@ -15,6 +15,7 @@ type Room struct {
 	Room_Availability Room_Availability  `bson:"room_availability,omitempty" json:"room_availability,omitempty"`
 	Cleaning_Status   Cleaning_Status    `bson:"cleaning_status,omitempty" json:"cleaning_status,omitempty"`
 	Price             float64            `bson:"price,omitempty" json:"price,omitempty"`
+	Capacity          int                `bson:"capacity,omitempty" json:"capacity,omitempty"`
 	// Images          []string           `bson:"images,omitempty" json:"images,omitempty"`
 	Created_at time.Time `bson:"created_at,omitempty" json:"created_at,omitempty"`
 	Updated_at time.Time `bson:"updated_at,omitempty" json:"updated_at,omitempty"`

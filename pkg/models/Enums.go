@@ -83,3 +83,12 @@ const (
 	Resolved FeedbackStatus = "resolved"
 	Pending  FeedbackStatus = "pending"
 )
+
+// TRUE , FALSE BOOL
+
+type BOOL string
+
+const (
+	True  BOOL = "true"
+	False BOOL = "false"
+)
