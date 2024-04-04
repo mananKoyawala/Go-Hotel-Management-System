@@ -18,6 +18,7 @@ func ManagerRoutes(r *gin.Engine) {
 		manager.DELETE("/delete/:id", controllers.DeleteManager())
 		manager.GET("/get/:id", controllers.GetManager())
 		manager.PATCH("/update-password", controllers.ResetManagerPassword())
+		manager.PATCH("/update-profile-pic/:id", controllers.UpdateManagerProfilePicture())
 	}
 }
 

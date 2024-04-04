@@ -1,18 +1,121 @@
 package controllers
 
 import (
+	"fmt"
+	"log"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mananKoyawala/hotel-management-system/pkg/database"
 	"github.com/mananKoyawala/hotel-management-system/pkg/helpers"
 	"github.com/mananKoyawala/hotel-management-system/pkg/models"
+	imageupload "github.com/mananKoyawala/hotel-management-system/pkg/service/image-upload"
 	"github.com/mananKoyawala/hotel-management-system/pkg/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+var managerFolder = "manager"
+
+// * DONE
+func GetManagers() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+
+		recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
+		if err != nil || recordPerPage < 10 {
+			recordPerPage = 10
+		}
+
+		page, err := strconv.Atoi(c.Query("page"))
+		if err != nil || page < 1 {
+			page = 1
+		}
+
+		startIndex := (page - 1) * recordPerPage
+		currentIndex := page * recordPerPage
+		// Here the aggregation pipeline started
+
+		groupStage := bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "null"},
+			{Key: "total_count", Value: bson.D{{Key: "$sum", Value: 1}}},
+			{Key: "data", Value: bson.D{{Key: "$push", Value: "$$ROOT"}}},
+		}}}
+
+		projectStage1 := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "_id", Value: 0},
+			{Key: "total_count", Value: 1},
+			{Key: "managers",
+				Value: bson.D{{Key: "$slice", Value: bson.A{"$data", startIndex, recordPerPage}}}},
+		}}}
+
+		projectStage2 := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "total_count", Value: 1},
+			{Key: "manager", Value: bson.D{
+				{Key: "$map", Value: bson.D{
+					{Key: "input", Value: "$managers"},
+					{Key: "as", Value: "data"},
+					{Key: "in", Value: bson.D{
+						{Key: "manager_id", Value: "$$data.manager_id"},
+						{Key: "first_name", Value: "$$data.first_name"},
+						{Key: "last_name", Value: "$$data.last_name"},
+						{Key: "age", Value: "$$data.age"},
+						{Key: "phone", Value: "$$data.phone"},
+						{Key: "email", Value: "$$data.email"},
+						{Key: "gender", Value: "$$data.gender"},
+						{Key: "salary", Value: "$$data.salary"},
+						{Key: "status", Value: "$$data.status"},
+						{Key: "image", Value: "$$data.image"},
+					}},
+				}},
+			}},
+			{Key: "hashMoreData", Value: bson.D{
+				{Key: "$cond", Value: bson.D{
+					{Key: "if", Value: bson.D{
+						{Key: "$eq", Value: bson.A{"$total_count", currentIndex}},
+					}},
+					{Key: "then", Value: false},
+					{Key: "else", Value: bson.D{
+						{Key: "$cond", Value: bson.D{
+							{Key: "if", Value: bson.D{
+								{Key: "$gt", Value: bson.A{"$total_count", currentIndex}},
+							}},
+							{Key: "then", Value: true},
+							{Key: "else", Value: false},
+						}},
+					}},
+				}},
+			}},
+		}}}
+
+		result, err := database.ManagerCollection.Aggregate(ctx, mongo.Pipeline{
+			groupStage, projectStage1, projectStage2,
+		})
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while fetching managers "+err.Error())
+			return
+		}
+
+		var allManagers []bson.M
+		if err := result.All(ctx, &allManagers); err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while getting the managers "+err.Error())
+			return
+		}
+
+		if len(allManagers) == 0 {
+			utils.Response(c, []interface{}{})
+			return
+		}
+
+		utils.Response(c, allManagers[0])
+	}
+}
 
 // * DONE
 func GetManager() gin.HandlerFunc {
@@ -40,10 +143,8 @@ func ManagerLoign() gin.HandlerFunc {
 		var manager models.Manager
 		var foundManager models.Manager
 
-		if err := c.BindJSON(&manager); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format.")
-			return
-		}
+		manager.Email = c.PostForm("email")
+		manager.Password = c.PostForm("password")
 
 		// Check Email
 		if err := database.ManagerCollection.FindOne(ctx, bson.M{"email": manager.Email}).Decode(&foundManager); err != nil {
@@ -82,16 +183,35 @@ func CreateManager() gin.HandlerFunc {
 		defer cancel()
 		var manager models.Manager
 
-		// Check json
-		if err := c.BindJSON(&manager); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format")
-			return
-		}
+		manager.First_Name = c.PostForm("first_name")
+		manager.Last_Name = c.PostForm("last_name")
+		manager.Age, _ = strconv.Atoi(c.PostForm("age"))
+		manager.Phone, _ = strconv.Atoi(c.PostForm("phone"))
+		manager.Email = c.PostForm("email")
+		manager.Password = c.PostForm("password")
+		manager.Gender = c.PostForm("gender")
+		manager.Salary, _ = strconv.ParseFloat(c.PostForm("salary"), 64)
+		manager.Aadhar_Number, _ = strconv.Atoi(c.PostForm("aadhar_number"))
 
 		// Validate details
 		msg, isVal := validateManager(manager)
 		if !isVal {
 			utils.Error(c, utils.BadRequest, msg)
+			return
+		}
+
+		// check file is valid
+		file, handler, err := c.Request.FormFile("file")
+		if err != nil {
+			utils.Error(c, utils.BadRequest, "File was not provided or Invalid file.")
+			return
+		}
+		defer file.Close()
+
+		// check the image file is .png , .jpg , .jpeg
+		ext := filepath.Ext(handler.Filename)
+		if ext != ".jpeg" && ext != ".jpg" && ext != ".png" {
+			utils.Error(c, utils.BadRequest, "Invalid Image file format. Only JPEG, JPG, or PNG files are allowed.")
 			return
 		}
 
@@ -134,6 +254,16 @@ func CreateManager() gin.HandlerFunc {
 		manager.Token = token
 		manager.Refresh_Token = refreshToken
 
+		// upload image
+		name := strings.ReplaceAll(handler.Filename, " ", "")
+		filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
+		url, err := imageupload.UploadService(file, managerFolder, filename)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't uplaod the image.")
+			return
+		}
+		manager.Image = url
+
 		// Insert Manager
 		result, err := database.ManagerCollection.InsertOne(ctx, manager)
 		if err != nil {
@@ -154,13 +284,31 @@ func UpdateManagerDetails() gin.HandlerFunc {
 		var manager models.Manager
 		id := c.Param("id")
 
-		// Check json
-		if err := c.BindJSON(&manager); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format")
+		manager.First_Name = c.PostForm("first_name")
+		manager.Last_Name = c.PostForm("last_name")
+		manager.Age, _ = strconv.Atoi(c.PostForm("age"))
+		manager.Gender = c.PostForm("gender")
+		manager.Salary, _ = strconv.ParseFloat(c.PostForm("salary"), 64)
+		manager.Phone, _ = strconv.Atoi(c.PostForm("phone"))
+
+		// Validate data
+		msg, val := validateUpdateManager(manager)
+		if !val {
+			utils.Error(c, utils.BadRequest, msg)
 			return
 		}
 
-		// Validate data
+		// check manager if exist or not
+		count, err := database.ManagerCollection.CountDocuments(ctx, bson.M{"manager_id": id})
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while fetching manager.")
+			return
+		}
+
+		if !(count > 0) {
+			utils.Error(c, utils.NotFound, "Can't find manager with id.")
+			return
+		}
 
 		// Update data here
 
@@ -201,14 +349,14 @@ func UpdateManagerDetails() gin.HandlerFunc {
 
 		// If success send success message
 
-		result, err := database.ManagerCollection.UpdateOne(ctx, filter, bson.D{
+		_, err = database.ManagerCollection.UpdateOne(ctx, filter, bson.D{
 			{Key: "$set", Value: updateObj},
 		}, &options)
 		if err != nil {
 			utils.Error(c, utils.InternalServerError, "Can't update manager details")
 			return
 		}
-		utils.Response(c, result)
+		utils.Message(c, "Manager updated successfully.")
 	}
 }
 
@@ -262,8 +410,19 @@ func DeleteManager() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := helpers.GetContext()
 		defer cancel()
-
+		var manager models.Manager
 		id := c.Param("id")
+
+		if err := database.ManagerCollection.FindOne(ctx, bson.M{"manager_id": id}).Decode(&manager); err != nil {
+			utils.Error(c, utils.BadRequest, "Can't find manager with id")
+			return
+		}
+
+		image := utils.GetTrimedUrl(manager.Image)
+		if err := imageupload.DeleteService(image); err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't delete image."+err.Error())
+			return
+		}
 
 		_, err := database.ManagerCollection.DeleteOne(ctx, bson.M{"manager_id": id})
 		if err != nil {
@@ -271,6 +430,146 @@ func DeleteManager() gin.HandlerFunc {
 			return
 		}
 		utils.Message(c, "Manager deleted successfully.")
+	}
+}
+
+// * DONE
+func ResetManagerPassword() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+		var manager models.Manager
+
+		manager.Email = c.PostForm("email")
+		manager.Password = c.PostForm("password")
+
+		// validate email & password
+		if !utils.ValidateEmail(manager.Email) {
+			utils.Error(c, utils.BadRequest, "Invalid Email Address")
+			return
+		}
+
+		msg, val := utils.ValidatePassword(manager.Password)
+		if !val {
+			utils.Error(c, utils.BadRequest, msg)
+			return
+		}
+
+		// check manager with email exist or not
+		count, err := database.ManagerCollection.CountDocuments(ctx, bson.M{"email": manager.Email})
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while getting manager details.")
+			return
+		}
+
+		if !(count > 0) {
+			utils.Error(c, utils.BadRequest, "Can't find manager with id.")
+			return
+		}
+
+		// hash password and update timestamp
+		password, err := helpers.HashPassword(manager.Password)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't generate hash password")
+			return
+		}
+		manager.Password = password
+		manager.Updated_at, _ = helpers.GetTime()
+
+		// update details
+		filter := bson.M{"email": manager.Email}
+		upsert := true
+		options := options.UpdateOptions{
+			Upsert: &upsert,
+		}
+
+		updateObj := bson.D{
+			{Key: "$set", Value: bson.D{
+				{Key: "Password", Value: manager.Password},
+				{Key: "updated_at", Value: manager.Updated_at},
+			}},
+		}
+
+		_, err = database.ManagerCollection.UpdateOne(ctx, filter, updateObj, &options)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't update password")
+			return
+		}
+
+		// return if success
+		utils.Message(c, "Password was updated")
+	}
+}
+
+// * DONE
+func UpdateManagerProfilePicture() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+		var manager models.Manager
+
+		// get id
+		id := c.Param("id")
+
+		// check the file
+		file, handler, err := c.Request.FormFile("file")
+		if err != nil {
+			utils.Error(c, utils.BadRequest, "File was not provided or Invalid file.")
+			return
+		}
+		defer file.Close()
+
+		// check the image file is .png , .jpg , .jpeg
+		ext := filepath.Ext(handler.Filename)
+		if ext != ".jpeg" && ext != ".jpg" && ext != ".png" {
+			utils.Error(c, utils.BadRequest, "Invalid Image file format. Only JPEG, JPG, or PNG files are allowed.")
+			return
+		}
+
+		// get url details for image url
+		if err := database.ManagerCollection.FindOne(ctx, bson.M{"manager_id": id}).Decode(&manager); err != nil {
+			utils.Error(c, utils.BadRequest, "Can't find manager with id")
+			return
+		}
+		log.Println(manager.Image)
+		// delete file
+		image := utils.GetTrimedUrl(manager.Image)
+		if err := imageupload.DeleteService(image); err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't delete image."+err.Error())
+			return
+		}
+
+		// upload new file
+		name := strings.ReplaceAll(handler.Filename, " ", "")
+		filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
+		url, err := imageupload.UploadService(file, managerFolder, filename)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't upload image."+err.Error())
+			return
+		}
+
+		// update new uploaded file
+		updated_at, _ := helpers.GetTime()
+		filter := bson.M{"manager_id": id}
+		upsert := true
+		options := options.UpdateOptions{
+			Upsert: &upsert,
+		}
+		updateObj := bson.D{
+			{Key: "$set", Value: bson.D{
+				{Key: "image", Value: url},
+				{Key: `updated_at`, Value: updated_at},
+			}},
+		}
+
+		_, err = database.ManagerCollection.UpdateOne(ctx, filter, updateObj, &options)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't update image.")
+			return
+		}
+
+		// if success return
+		utils.Message(c, "Image updated successfully.")
 	}
 }
 
@@ -319,160 +618,30 @@ func validateManager(manager models.Manager) (string, bool) {
 }
 
 // * DONE
-func GetManagers() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		ctx, cancel := helpers.GetContext()
-		defer cancel()
-
-		recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
-		if err != nil || recordPerPage < 10 {
-			recordPerPage = 10
-		}
-
-		page, err := strconv.Atoi(c.Query("page"))
-		if err != nil || page < 1 {
-			page = 1
-		}
-
-		startIndex := (page - 1) * recordPerPage
-		currentIndex := page * recordPerPage
-		// Here the aggregation pipeline started
-
-		groupStage := bson.D{{Key: "$group", Value: bson.D{
-			{Key: "_id", Value: "null"},
-			{Key: "total_count", Value: bson.D{{Key: "$sum", Value: 1}}},
-			{Key: "data", Value: bson.D{{Key: "$push", Value: "$$ROOT"}}},
-		}}}
-
-		projectStage1 := bson.D{{Key: "$project", Value: bson.D{
-			{Key: "_id", Value: 0},
-			{Key: "total_count", Value: 1},
-			{Key: "managers",
-				Value: bson.D{{Key: "$slice", Value: bson.A{"$data", startIndex, recordPerPage}}}},
-		}}}
-
-		projectStage2 := bson.D{{Key: "$project", Value: bson.D{
-			{Key: "total_count", Value: 1},
-			{Key: "manager", Value: bson.D{
-				{Key: "$map", Value: bson.D{
-					{Key: "input", Value: "$managers"},
-					{Key: "as", Value: "data"},
-					{Key: "in", Value: bson.D{
-						{Key: "manager_id", Value: "$$data.manager_id"},
-						{Key: "first_name", Value: "$$data.first_name"},
-						{Key: "last_name", Value: "$$data.last_name"},
-						{Key: "age", Value: "$$data.age"},
-						{Key: "phone", Value: "$$data.phone"},
-						{Key: "email", Value: "$$data.email"},
-						{Key: "gender", Value: "$$data.gender"},
-						{Key: "salary", Value: "$$data.salary"},
-						{Key: "status", Value: "$$data.status"},
-					}},
-				}},
-			}},
-			{Key: "hashMoreData", Value: bson.D{
-				{Key: "$cond", Value: bson.D{
-					{Key: "if", Value: bson.D{
-						{Key: "$eq", Value: bson.A{"$total_count", currentIndex}},
-					}},
-					{Key: "then", Value: false},
-					{Key: "else", Value: bson.D{
-						{Key: "$cond", Value: bson.D{
-							{Key: "if", Value: bson.D{
-								{Key: "$gt", Value: bson.A{"$total_count", currentIndex}},
-							}},
-							{Key: "then", Value: true},
-							{Key: "else", Value: false},
-						}},
-					}},
-				}},
-			}},
-		}}}
-
-		result, err := database.ManagerCollection.Aggregate(ctx, mongo.Pipeline{
-			groupStage, projectStage1, projectStage2,
-		})
-		if err != nil {
-			utils.Error(c, utils.InternalServerError, "Error while fetching managers "+err.Error())
-			return
-		}
-
-		var allManagers []bson.M
-		if err := result.All(ctx, &allManagers); err != nil {
-			utils.Error(c, utils.InternalServerError, "Error while getting the managers "+err.Error())
-			return
-		}
-
-		if len(allManagers) == 0 {
-			utils.Response(c, []interface{}{})
-			return
-		}
-
-		utils.Response(c, allManagers[0])
+func validateUpdateManager(manager models.Manager) (string, bool) {
+	if manager.First_Name == "" {
+		return "First name is required", false
 	}
-}
 
-// * DONE
-func ResetManagerPassword() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		ctx, cancel := helpers.GetContext()
-		defer cancel()
-		var manager models.Manager
-
-		if err := c.BindJSON(&manager); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format.")
-			return
-		}
-
-		// validate email & password
-		if !utils.ValidateEmail(manager.Email) {
-			utils.Error(c, utils.BadRequest, "Invalid Email Address")
-			return
-		}
-
-		msg, val := utils.ValidatePassword(manager.Password)
-		if !val {
-			utils.Error(c, utils.BadRequest, msg)
-			return
-		}
-
-		// check manager with email exist or not
-		_, err := database.ManagerCollection.Find(ctx, bson.M{"email": manager.Email})
-		if err != nil {
-			utils.Error(c, utils.InternalServerError, "Can't find manager with email")
-			return
-		}
-
-		// hash password and update timestamp
-		password, err := helpers.HashPassword(manager.Password)
-		if err != nil {
-			utils.Error(c, utils.InternalServerError, "Can't generate hash password")
-			return
-		}
-		manager.Password = password
-		manager.Updated_at, _ = helpers.GetTime()
-
-		// update details
-		filter := bson.M{"email": manager.Email}
-		upsert := true
-		options := options.UpdateOptions{
-			Upsert: &upsert,
-		}
-
-		updateObj := bson.D{
-			{Key: "$set", Value: bson.D{
-				{Key: "Password", Value: manager.Password},
-				{Key: "updated_at", Value: manager.Updated_at},
-			}},
-		}
-
-		_, err = database.ManagerCollection.UpdateOne(ctx, filter, updateObj, &options)
-		if err != nil {
-			utils.Error(c, utils.InternalServerError, "Can't update password")
-			return
-		}
-
-		// return if success
-		utils.Message(c, "Password was updated")
+	if manager.Last_Name == "" {
+		return "Last name is required", false
 	}
+
+	if manager.Age < 18 || manager.Age > 65 {
+		return "Age must be between 18 to 65", false
+	}
+
+	if utils.CheckLength(manager.Phone, 10) {
+		return "Phone number must be 10 digits", false
+	}
+
+	if manager.Gender == "" {
+		return "Gender is required", false
+	}
+
+	if !utils.IsNonNegative(int(manager.Salary)) {
+		return "Salary must not 0 or negative", false
+	}
+
+	return "", true
 }
