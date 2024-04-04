@@ -15,6 +15,7 @@ func GuestRoutes(r *gin.Engine) {
 		guest.GET("/get/:id", controllers.GetGuest())
 		guest.PUT("/update/:id", controllers.UpdateGuestDetails())
 		guest.PATCH("/update-password", controllers.ResetUserPassword())
+		guest.PATCH("/update-profile-pic/:id", controllers.UpdateProfilePicture())
 		guest.DELETE("/delete/:id", controllers.DeleteGuest())
 		// * Admin
 		guest.GET("/getall", controllers.GetAllGuest())

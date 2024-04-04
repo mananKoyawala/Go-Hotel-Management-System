@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -96,4 +97,8 @@ func ValidatePassword(password string) (string, bool) {
 
 func CheckLength(num int, length int) bool {
 	return len(strconv.Itoa(num)) != length
+}
+
+func GetTrimedUrl(url string) string {
+	return strings.TrimPrefix(url, "https://storage.googleapis.com/golangwithfirebase.appspot.com/")
 }

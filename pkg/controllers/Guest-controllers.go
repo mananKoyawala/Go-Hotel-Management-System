@@ -1,18 +1,26 @@
 package controllers
 
 import (
+	"fmt"
+	"log"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mananKoyawala/hotel-management-system/pkg/database"
 	"github.com/mananKoyawala/hotel-management-system/pkg/helpers"
 	"github.com/mananKoyawala/hotel-management-system/pkg/models"
+	imageupload "github.com/mananKoyawala/hotel-management-system/pkg/service/image-upload"
 	"github.com/mananKoyawala/hotel-management-system/pkg/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+var guestFolder = "guest"
 
 // * DONE
 func GetAllGuest() gin.HandlerFunc {
@@ -62,6 +70,7 @@ func GetAllGuest() gin.HandlerFunc {
 						{Key: "email", Value: "$$data.email"},
 						{Key: "gender", Value: "$$data.gender"},
 						{Key: "country", Value: "$$data.country"},
+						{Key: "image", Value: "$$data.image"},
 					}},
 				}},
 			}},
@@ -132,16 +141,34 @@ func GuestSignup() gin.HandlerFunc {
 		defer cancel()
 		var guest models.Guest
 
-		// check json
-		if err := c.BindJSON(&guest); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format")
-			return
-		}
+		guest.First_Name = c.PostForm("first_name")
+		guest.Last_Name = c.PostForm("last_name")
+		guest.Phone, _ = strconv.Atoi(c.PostForm("phone"))
+		guest.Email = c.PostForm("email")
+		guest.Password = c.PostForm("password")
+		guest.Country = c.PostForm("country")
+		guest.Gender = c.PostForm("gender")
+		guest.ID_Proof_Type = c.PostForm("id_proof_type")
 
 		// validate guest details
 		msg, isVal := validateGuestDetails(guest)
 		if !isVal {
 			utils.Error(c, utils.BadRequest, msg)
+			return
+		}
+
+		// check file is valid
+		file, handler, err := c.Request.FormFile("file")
+		if err != nil {
+			utils.Error(c, utils.BadRequest, "File was not provided or Invalid file.")
+			return
+		}
+		defer file.Close()
+
+		// check the image file is .png , .jpg , .jpeg
+		ext := filepath.Ext(handler.Filename)
+		if ext != ".jpeg" && ext != ".jpg" && ext != ".png" {
+			utils.Error(c, utils.BadRequest, "Invalid Image file format. Only JPEG, JPG, or PNG files are allowed.")
 			return
 		}
 
@@ -178,6 +205,16 @@ func GuestSignup() gin.HandlerFunc {
 		guest.Token = token
 		guest.Refresh_Token = refreshToken
 
+		// upload image
+		name := strings.ReplaceAll(handler.Filename, " ", "")
+		filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
+		url, err := imageupload.UploadService(file, guestFolder, filename)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't uplaod the image.")
+			return
+		}
+		guest.Image = url
+
 		// Insert the details
 		result, err := database.GuestCollection.InsertOne(ctx, guest)
 		if err != nil {
@@ -198,10 +235,8 @@ func GuestLogin() gin.HandlerFunc {
 		var guest models.Guest
 		var foundGuest models.Guest
 
-		if err := c.BindJSON(&guest); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format.")
-			return
-		}
+		guest.Email = c.PostForm("email")
+		guest.Password = c.PostForm("password")
 
 		// Check Email
 		if err := database.GuestCollection.FindOne(ctx, bson.M{"email": guest.Email}).Decode(&foundGuest); err != nil {
@@ -239,13 +274,14 @@ func UpdateGuestDetails() gin.HandlerFunc {
 		ctx, cancel := helpers.GetContext()
 		defer cancel()
 		var guest models.Guest
+		var foundGuest models.Guest
 		id := c.Param("id")
 
-		// Check json
-		if err := c.BindJSON(&guest); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format")
-			return
-		}
+		guest.First_Name = c.PostForm("first_name")
+		guest.Last_Name = c.PostForm("last_name")
+		guest.Phone, _ = strconv.Atoi(c.PostForm("phone"))
+		guest.Country = c.PostForm("country")
+		guest.Gender = c.PostForm("gender")
 
 		// Validate data
 		msg, isVal := validateUpdateGuestDetails(guest)
@@ -254,8 +290,13 @@ func UpdateGuestDetails() gin.HandlerFunc {
 			return
 		}
 
-		// Update data here
+		// check guest exist or not
+		if err := database.GuestCollection.FindOne(ctx, bson.M{"guest_id": id}).Decode(&foundGuest); err != nil {
+			utils.Error(c, utils.BadRequest, "Can't find guest with id")
+			return
+		}
 
+		// Update data here
 		var updateObj primitive.D
 
 		updateObj = append(updateObj, bson.E{Key: "first_name", Value: guest.First_Name})
@@ -295,8 +336,20 @@ func DeleteGuest() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := helpers.GetContext()
 		defer cancel()
+		var guest models.Guest
 
 		id := c.Param("id")
+
+		if err := database.GuestCollection.FindOne(ctx, bson.M{"guest_id": id}).Decode(&guest); err != nil {
+			utils.Error(c, utils.BadRequest, "Can't find guest with id")
+			return
+		}
+
+		image := utils.GetTrimedUrl(guest.Image)
+		if err := imageupload.DeleteService(image); err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't delete image."+err.Error())
+			return
+		}
 
 		_, err := database.GuestCollection.DeleteOne(ctx, bson.M{"guest_id": id})
 		if err != nil {
@@ -382,6 +435,78 @@ func ResetUserPassword() gin.HandlerFunc {
 	}
 }
 
+// * DONE
+func UpdateProfilePicture() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+		var guest models.Guest
+
+		// get id
+		id := c.Param("id")
+
+		// check the file
+		file, handler, err := c.Request.FormFile("file")
+		if err != nil {
+			utils.Error(c, utils.BadRequest, "File was not provided or Invalid file.")
+			return
+		}
+		defer file.Close()
+
+		// check the image file is .png , .jpg , .jpeg
+		ext := filepath.Ext(handler.Filename)
+		if ext != ".jpeg" && ext != ".jpg" && ext != ".png" {
+			utils.Error(c, utils.BadRequest, "Invalid Image file format. Only JPEG, JPG, or PNG files are allowed.")
+			return
+		}
+
+		// get url details for image url
+		if err := database.GuestCollection.FindOne(ctx, bson.M{"guest_id": id}).Decode(&guest); err != nil {
+			utils.Error(c, utils.BadRequest, "Can't find guest with id")
+			return
+		}
+		log.Println(guest.Image)
+		// delete file
+		image := utils.GetTrimedUrl(guest.Image)
+		if err := imageupload.DeleteService(image); err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't delete image."+err.Error())
+			return
+		}
+
+		// upload new file
+		name := strings.ReplaceAll(handler.Filename, " ", "")
+		filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
+		url, err := imageupload.UploadService(file, guestFolder, filename)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't upload image."+err.Error())
+			return
+		}
+
+		// update new uploaded file
+		updated_at, _ := helpers.GetTime()
+		filter := bson.M{"guest_id": id}
+		upsert := true
+		options := options.UpdateOptions{
+			Upsert: &upsert,
+		}
+		updateObj := bson.D{
+			{Key: "$set", Value: bson.D{
+				{Key: "image", Value: url},
+				{Key: `updated_at`, Value: updated_at},
+			}},
+		}
+
+		_, err = database.GuestCollection.UpdateOne(ctx, filter, updateObj, &options)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't update image.")
+			return
+		}
+
+		// if success return
+		utils.Message(c, "Image updated successfully.")
+	}
+}
+
 func validateGuestDetails(guest models.Guest) (string, bool) {
 
 	if guest.First_Name == "" {
@@ -447,24 +572,24 @@ func validateUpdateGuestDetails(guest models.Guest) (string, bool) {
 	return "", true
 }
 
-func checkIdProofType(proof models.ID_Proof_Type) bool {
+func checkIdProofType(proof string) bool {
 	if proof == "" {
 		return false
 	}
 
-	if proof == models.Aadhar_Card {
+	if models.ID_Proof_Type(proof) == models.Aadhar_Card {
 		return true
 	}
 
-	if proof == models.Pan_Card {
+	if models.ID_Proof_Type(proof) == models.Pan_Card {
 		return true
 	}
 
-	if proof == models.PassPort {
+	if models.ID_Proof_Type(proof) == models.PassPort {
 		return true
 	}
 
-	if proof == models.Driving_License {
+	if models.ID_Proof_Type(proof) == models.Driving_License {
 		return true
 	}
 	return false
