@@ -1,4 +1,4 @@
-package image
+package imageupload
 
 import (
 	"context"
@@ -16,10 +16,12 @@ import (
 )
 
 var ctx = context.Background()
-var opt = option.WithCredentialsFile("pkg/helpers/image/serviceAccountKey.json") // Replace with your service account key path
-var config = &firebase.Config{StorageBucket: "golangwithfirebase.appspot.com"}   // Replace with your Firebase Storage bucket name
+var opt = option.WithCredentialsFile("pkg/service/image-upload/serviceAccountKey.json") // Replace with your service account key path
+var config = &firebase.Config{StorageBucket: "golangwithfirebase.appspot.com"}          // Replace with your Firebase Storage bucket name
 
-func uploadService(file io.Reader, filename string) (string, error) {
+func UploadService(file io.Reader, foldername string, filename string) (string, error) {
+
+	path := "hotelmanagement/" + foldername + "/" + filename
 
 	app, err := firebase.NewApp(ctx, config, opt)
 	if err != nil {
@@ -36,7 +38,8 @@ func uploadService(file io.Reader, filename string) (string, error) {
 		return "", err
 	}
 
-	object := bucket.Object(filename)
+	object := bucket.Object(path)
+
 	wc := object.NewWriter(ctx)
 	if _, err := io.Copy(wc, file); err != nil {
 		return "", err
@@ -50,12 +53,13 @@ func uploadService(file io.Reader, filename string) (string, error) {
 		return "", err
 	}
 
-	url := fmt.Sprintf("https://storage.googleapis.com/golangwithfirebase.appspot.com/%s", filename)
+	url := fmt.Sprintf("https://storage.googleapis.com/golangwithfirebase.appspot.com/hotelmanagement/%s/%s", foldername, filename)
 
 	return url, nil
 }
 
-func deleteService(filename string) error {
+func DeleteService(filename string) error {
+
 	app, err := firebase.NewApp(ctx, config, opt)
 	if err != nil {
 		return err
@@ -88,9 +92,9 @@ func ImageUpload() gin.HandlerFunc {
 			return
 		}
 		defer file.Close()
-
-		filename := fmt.Sprintf("%d_%s", time.Now().Unix(), handler.Filename)
-		mediaLink, err := uploadService(file, filename)
+		name := strings.ReplaceAll(handler.Filename, " ", "")
+		filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
+		mediaLink, err := UploadService(file, "temp", filename)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -105,7 +109,8 @@ func ImageDelete() gin.HandlerFunc {
 		rawurl := c.PostForm("url")
 
 		url := strings.TrimPrefix(rawurl, "https://storage.googleapis.com/golangwithfirebase.appspot.com/")
-		if err := deleteService(url); err != nil {
+		// it delete based on the path from root folder to filename
+		if err := DeleteService(url); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}

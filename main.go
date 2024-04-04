@@ -6,9 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mananKoyawala/hotel-management-system/pkg/database"
-	"github.com/mananKoyawala/hotel-management-system/pkg/helpers/image"
 	"github.com/mananKoyawala/hotel-management-system/pkg/routes"
-	_ "github.com/mananKoyawala/hotel-management-system/pkg/utils"
+	imageupload "github.com/mananKoyawala/hotel-management-system/pkg/service/image-upload"
 )
 
 func main() {
@@ -30,8 +29,8 @@ func main() {
 		c.JSON(200, gin.H{"status": "OK"})
 	})
 
-	server.POST("/upload", image.ImageUpload())
-	server.DELETE("/delete", image.ImageDelete())
+	server.POST("/upload", imageupload.ImageUpload())
+	server.DELETE("/delete", imageupload.ImageDelete())
 	routes.ReservationRoutes(server)
 	routes.PickupServiceRoutes(server)
 	routes.DriverRoutes(server)
