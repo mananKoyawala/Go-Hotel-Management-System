@@ -1,18 +1,26 @@
 package controllers
 
 import (
+	"fmt"
+	"log"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mananKoyawala/hotel-management-system/pkg/database"
 	"github.com/mananKoyawala/hotel-management-system/pkg/helpers"
 	"github.com/mananKoyawala/hotel-management-system/pkg/models"
+	imageupload "github.com/mananKoyawala/hotel-management-system/pkg/service/image-upload"
 	"github.com/mananKoyawala/hotel-management-system/pkg/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+var staffFolder = "staff"
 
 // * DONE
 func GetAllStaff() gin.HandlerFunc {
@@ -72,6 +80,7 @@ func GetAllStaff() gin.HandlerFunc {
 						{Key: "job_type", Value: "$$data.job_type"},
 						{Key: "salary", Value: "$$data.salary"},
 						{Key: "status", Value: "$$data.status"},
+						{Key: "image", Value: "$$data.image"},
 					}},
 				}},
 			}},
@@ -142,11 +151,16 @@ func CreateStaff() gin.HandlerFunc {
 		defer cancel()
 		var staff models.Staff
 
-		// check json
-		if err := c.BindJSON(&staff); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format")
-			return
-		}
+		staff.Branch_id = c.PostForm("branch_id")
+		staff.First_Name = c.PostForm("first_name")
+		staff.Last_Name = c.PostForm("last_name")
+		staff.Phone, _ = strconv.Atoi(c.PostForm("phone"))
+		staff.Email = c.PostForm("email")
+		staff.Gender = c.PostForm("gender")
+		staff.Age, _ = strconv.Atoi(c.PostForm("age"))
+		staff.Job_Type = c.PostForm("job_type")
+		staff.Salary, _ = strconv.ParseFloat(c.PostForm("salary"), 64)
+		staff.Aadhar_Number, _ = strconv.Atoi(c.PostForm("aadhar_number"))
 
 		// validate staff details
 		msg, isVal := validateStaffDetails(staff)
@@ -155,6 +169,22 @@ func CreateStaff() gin.HandlerFunc {
 			return
 		}
 
+		// check file is valid
+		file, handler, err := c.Request.FormFile("file")
+		if err != nil {
+			utils.Error(c, utils.BadRequest, "File was not provided or Invalid file.")
+			return
+		}
+		defer file.Close()
+
+		// check the image file is .png , .jpg , .jpeg
+		ext := filepath.Ext(handler.Filename)
+		if ext != ".jpeg" && ext != ".jpg" && ext != ".png" {
+			utils.Error(c, utils.BadRequest, "Invalid Image file format. Only JPEG, JPG, or PNG files are allowed.")
+			return
+		}
+
+		// check email already exist or not
 		count, err := database.StaffCollection.CountDocuments(ctx, bson.M{"email": staff.Email})
 		if err != nil {
 			utils.Error(c, utils.InternalServerError, "Error while getting details.")
@@ -172,6 +202,16 @@ func CreateStaff() gin.HandlerFunc {
 		staff.Status = models.Active
 		staff.Created_at, _ = helpers.GetTime()
 		staff.Updated_at, _ = helpers.GetTime()
+
+		// upload image
+		name := strings.ReplaceAll(handler.Filename, " ", "")
+		filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
+		url, err := imageupload.UploadService(file, staffFolder, filename)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't uplaod the image.")
+			return
+		}
+		staff.Image = url
 
 		// Insert the details
 		result, err := database.StaffCollection.InsertOne(ctx, staff)
@@ -193,11 +233,16 @@ func UpdateStaffDetails() gin.HandlerFunc {
 		var staff models.Staff
 		id := c.Param("id")
 
-		// Check json
-		if err := c.BindJSON(&staff); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format")
-			return
-		}
+		staff.Branch_id = c.PostForm("branch_id")
+		staff.First_Name = c.PostForm("first_name")
+		staff.Last_Name = c.PostForm("last_name")
+		staff.Phone, _ = strconv.Atoi(c.PostForm("phone"))
+		staff.Email = c.PostForm("email")
+		staff.Gender = c.PostForm("gender")
+		staff.Age, _ = strconv.Atoi(c.PostForm("age"))
+		staff.Job_Type = c.PostForm("job_type")
+		staff.Salary, _ = strconv.ParseFloat(c.PostForm("salary"), 64)
+		staff.Aadhar_Number, _ = strconv.Atoi(c.PostForm("aadhar_number"))
 
 		// Validate data
 		msg, isVal := validateStaffDetails(staff)
@@ -314,8 +359,19 @@ func DeleteStaff() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := helpers.GetContext()
 		defer cancel()
-
+		var staff models.Staff
 		id := c.Param("id")
+
+		if err := database.StaffCollection.FindOne(ctx, bson.M{"staff_id": id}).Decode(&staff); err != nil {
+			utils.Error(c, utils.BadRequest, "Can't find staff with id")
+			return
+		}
+
+		image := utils.GetTrimedUrl(staff.Image)
+		if err := imageupload.DeleteService(image); err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't delete image."+err.Error())
+			return
+		}
 
 		_, err := database.StaffCollection.DeleteOne(ctx, bson.M{"staff_id": id})
 		if err != nil {
@@ -323,6 +379,77 @@ func DeleteStaff() gin.HandlerFunc {
 			return
 		}
 		utils.Message(c, "Staff deleted successfully.")
+	}
+}
+
+func UpdateStaffProfilePicture() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+		var staff models.Staff
+
+		// get id
+		id := c.Param("id")
+
+		// check the file
+		file, handler, err := c.Request.FormFile("file")
+		if err != nil {
+			utils.Error(c, utils.BadRequest, "File was not provided or Invalid file.")
+			return
+		}
+		defer file.Close()
+
+		// check the image file is .png , .jpg , .jpeg
+		ext := filepath.Ext(handler.Filename)
+		if ext != ".jpeg" && ext != ".jpg" && ext != ".png" {
+			utils.Error(c, utils.BadRequest, "Invalid Image file format. Only JPEG, JPG, or PNG files are allowed.")
+			return
+		}
+
+		// get url details for image url
+		if err := database.StaffCollection.FindOne(ctx, bson.M{"staff_id": id}).Decode(&staff); err != nil {
+			utils.Error(c, utils.BadRequest, "Can't find staff with id")
+			return
+		}
+		log.Println(staff.Image)
+		// delete file
+		image := utils.GetTrimedUrl(staff.Image)
+		if err := imageupload.DeleteService(image); err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't delete image."+err.Error())
+			return
+		}
+
+		// upload new file
+		name := strings.ReplaceAll(handler.Filename, " ", "")
+		filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
+		url, err := imageupload.UploadService(file, staffFolder, filename)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't upload image."+err.Error())
+			return
+		}
+
+		// update new uploaded file
+		updated_at, _ := helpers.GetTime()
+		filter := bson.M{"staff_id": id}
+		upsert := true
+		options := options.UpdateOptions{
+			Upsert: &upsert,
+		}
+		updateObj := bson.D{
+			{Key: "$set", Value: bson.D{
+				{Key: "image", Value: url},
+				{Key: `updated_at`, Value: updated_at},
+			}},
+		}
+
+		_, err = database.StaffCollection.UpdateOne(ctx, filter, updateObj, &options)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't update image.")
+			return
+		}
+
+		// if success return
+		utils.Message(c, "Image updated successfully.")
 	}
 }
 

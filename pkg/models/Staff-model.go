@@ -20,9 +20,9 @@ type Staff struct {
 	Email         string             `bson:"email,omitempty" json:"email,omitempty"`
 	Phone         int                `bson:"phone,omitempty" json:"phone,omitempty"`
 	Status        Status             `bson:"status,omitempty" json:"status,omitempty"`
-	// Image         string             `bson:"image,omitempty" json:"image,omitempty"`
-	Created_at time.Time `bson:"created_at,omitempty" json:"created_at,omitempty"`
-	Updated_at time.Time `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
+	Image         string             `bson:"image,omitempty" json:"image,omitempty"`
+	Created_at    time.Time          `bson:"created_at,omitempty" json:"created_at,omitempty"`
+	Updated_at    time.Time          `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
 }
 
 // Staff has only one profile photo

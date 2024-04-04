@@ -14,6 +14,7 @@ func StaffRoutes(r *gin.Engine) {
 		staff.POST("/create", controllers.CreateStaff())
 		staff.PUT("/update-all/:id", controllers.UpdateStaffDetails())
 		staff.PATCH("/update-status/:id", controllers.UpdateStaffStatus())
+		staff.PATCH("/update-profile-pic/:id", controllers.UpdateStaffProfilePicture())
 		staff.DELETE("/delete/:id", controllers.DeleteStaff())
 	}
 }

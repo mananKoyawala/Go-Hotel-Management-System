@@ -361,7 +361,7 @@ func DeleteGuest() gin.HandlerFunc {
 }
 
 // * DONE
-func ResetUserPassword() gin.HandlerFunc {
+func ResetGuestPassword() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := helpers.GetContext()
 		defer cancel()
@@ -436,7 +436,7 @@ func ResetUserPassword() gin.HandlerFunc {
 }
 
 // * DONE
-func UpdateProfilePicture() gin.HandlerFunc {
+func UpdateGuestProfilePicture() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := helpers.GetContext()
 		defer cancel()
