@@ -2,18 +2,25 @@ package controllers
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mananKoyawala/hotel-management-system/pkg/database"
 	"github.com/mananKoyawala/hotel-management-system/pkg/helpers"
 	"github.com/mananKoyawala/hotel-management-system/pkg/models"
+	imageupload "github.com/mananKoyawala/hotel-management-system/pkg/service/image-upload"
 	"github.com/mananKoyawala/hotel-management-system/pkg/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+var branchFolder = "branch"
+var maxFiles = 5
 
 // * DONE
 func GetBranch() gin.HandlerFunc {
@@ -83,6 +90,7 @@ func GetBranches() gin.HandlerFunc {
 						{Key: "country", Value: "$$data.country"},
 						{Key: "pincode", Value: "$$data.pincode"},
 						{Key: "status", Value: "$$data.status"},
+						{Key: "images", Value: "$$data.images"},
 					}},
 				}},
 			}},
@@ -133,14 +141,18 @@ func CreateBranch() gin.HandlerFunc {
 		defer cancel()
 		var branch models.Branch
 
-		// Check JSON
-		if err := c.BindJSON(&branch); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format")
-			return
-		}
+		branch.Manager_id = c.PostForm("manager_id")
+		branch.Branch_Name = c.PostForm("branch_name")
+		branch.Address = c.PostForm("address")
+		branch.Phone, _ = strconv.Atoi(c.PostForm("phone"))
+		branch.Email = c.PostForm("email")
+		branch.City = c.PostForm("city")
+		branch.State = c.PostForm("state")
+		branch.Country = c.PostForm("country")
+		branch.Pincode, _ = strconv.Atoi(c.PostForm("pincode"))
 
 		// Validate Details
-		msg, isVal := validateBranchDetails(&branch)
+		msg, isVal := validateBranchDetails(branch)
 		if !isVal {
 			utils.Error(c, utils.BadRequest, msg)
 			return
@@ -159,6 +171,36 @@ func CreateBranch() gin.HandlerFunc {
 			return
 		}
 
+		// Check if no files are provided
+		if len(c.Request.MultipartForm.File["file"]) <= 0 {
+			utils.Error(c, utils.BadRequest, "No files provided.")
+			return
+		}
+
+		// Check if more than 5 files are uploaded
+		if len(c.Request.MultipartForm.File["file"]) > maxFiles {
+			message := fmt.Sprintf("Only %d files can be uploaded.", maxFiles)
+			utils.Error(c, utils.BadRequest, message)
+			return
+		}
+
+		// check that all the provided files are .png .jpeg or .jpg
+		for _, fileHeader := range c.Request.MultipartForm.File["file"] {
+			file, err := fileHeader.Open()
+			if err != nil {
+				utils.Error(c, utils.BadRequest, "File was not provided or Invalid file.")
+				return
+			}
+			defer file.Close()
+
+			// Check the image file is .png , .jpg , .jpeg
+			ext := filepath.Ext(fileHeader.Filename)
+			if ext != ".jpeg" && ext != ".jpg" && ext != ".png" {
+				utils.Error(c, utils.BadRequest, "Invalid Image file format. Only JPEG, JPG, or PNG files are allowed.")
+				return
+			}
+		}
+
 		// Generate IDs and Timestamps
 		branch.ID = primitive.NewObjectID()
 		branch.Branch_id = branch.ID.Hex()
@@ -167,6 +209,19 @@ func CreateBranch() gin.HandlerFunc {
 		// If admin add room that it will counted here
 		branch.Created_at, _ = helpers.GetTime()
 		branch.Updated_at, _ = helpers.GetTime()
+
+		// upload files here
+		for _, fileHeader := range c.Request.MultipartForm.File["file"] {
+			name := strings.ReplaceAll(fileHeader.Filename, " ", "")
+			file, _ := fileHeader.Open()
+			filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
+			url, err := imageupload.UploadService(file, branchFolder, filename)
+			if err != nil {
+				utils.Error(c, utils.InternalServerError, "Can't uplaod the image.")
+				return
+			}
+			branch.Images = append(branch.Images, url)
+		}
 
 		// Insert Details
 		result, err := database.BranchCollection.InsertOne(ctx, branch)
@@ -185,9 +240,22 @@ func DeleteBranch() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := helpers.GetContext()
 		defer cancel()
-
+		var branch models.Branch
 		id := c.Param("id")
 
+		if err := database.BranchCollection.FindOne(ctx, bson.M{"branch_id": id}).Decode(&branch); err != nil {
+			utils.Error(c, utils.BadRequest, "Can't find branch with id")
+			return
+		}
+
+		for _, i := range branch.Images {
+			image := utils.GetTrimedUrl(i)
+			if err := imageupload.DeleteService(image); err != nil {
+				utils.Error(c, utils.InternalServerError, "Can't delete image."+err.Error())
+				return
+			}
+
+		}
 		_, err := database.BranchCollection.DeleteOne(ctx, bson.M{"branch_id": id})
 		if err != nil {
 			utils.Error(c, utils.InternalServerError, "Can't delete branch")
@@ -205,17 +273,30 @@ func UpdateBranchDetails() gin.HandlerFunc {
 		var branch models.Branch
 		id := c.Param("id")
 
-		// Check json
-		if err := c.BindJSON(&branch); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format")
-			return
-		}
+		branch.Manager_id = c.PostForm("manager_id")
+		branch.Branch_Name = c.PostForm("branch_name")
+		branch.Address = c.PostForm("address")
+		branch.Phone, _ = strconv.Atoi(c.PostForm("phone"))
+		branch.Email = c.PostForm("email")
+		branch.City = c.PostForm("city")
+		branch.State = c.PostForm("state")
+		branch.Country = c.PostForm("country")
+		branch.Pincode, _ = strconv.Atoi(c.PostForm("pincode"))
 
 		// Validate data
+		msg, val := validateBranchDetails(branch)
+		if !val {
+			utils.Error(c, utils.BadRequest, msg)
+			return
+		}
 
 		var updateObj primitive.D
 
 		// Update details if not empty
+		if branch.Manager_id != "" {
+			updateObj = append(updateObj, bson.E{Key: "manager_id", Value: branch.Manager_id})
+		}
+
 		if branch.Branch_Name != "" {
 			updateObj = append(updateObj, bson.E{Key: "branch_name", Value: branch.Branch_Name})
 		}
@@ -318,7 +399,11 @@ func UpdateBranchStatus() gin.HandlerFunc {
 }
 
 // * DONE
-func validateBranchDetails(branch *models.Branch) (string, bool) {
+func validateBranchDetails(branch models.Branch) (string, bool) {
+
+	if branch.Manager_id == "" {
+		return "Manager id is required", false
+	}
 
 	if branch.Branch_Name == "" {
 		return "Branch name is required", false
@@ -441,6 +526,7 @@ func GetBranchesByStatus() gin.HandlerFunc {
 														{Key: "country", Value: "$$data.country"},
 														{Key: "pincode", Value: "$$data.pincode"},
 														{Key: "status", Value: "$$data.status"},
+														{Key: "images", Value: "$$data.images"},
 													}},
 												},
 											},
@@ -472,5 +558,136 @@ func GetBranchesByStatus() gin.HandlerFunc {
 			return
 		}
 		utils.Response(c, allBranches[0])
+	}
+}
+
+// * DONE
+func BranchAddImage() gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+		var branch models.Branch
+		id := c.Param("id")
+
+		if err := database.BranchCollection.FindOne(ctx, bson.M{"branch_id": id}).Decode(&branch); err != nil {
+			utils.Error(c, utils.NotFound, "Can't find branch with id.")
+			return
+		}
+
+		if len(branch.Images) >= 5 {
+			utils.Error(c, utils.BadRequest, "Maximum 5 images already uploaded.")
+			return
+		}
+
+		file, handler, err := c.Request.FormFile("file")
+		if err != nil {
+			utils.Error(c, utils.BadRequest, "File was not provided or Invalid file.")
+			return
+		}
+		defer file.Close()
+
+		// check the image file is .png , .jpg , .jpeg
+		ext := filepath.Ext(handler.Filename)
+		if ext != ".jpeg" && ext != ".jpg" && ext != ".png" {
+			utils.Error(c, utils.BadRequest, "Invalid Image file format. Only JPEG, JPG, or PNG files are allowed.")
+			return
+		}
+
+		// upload image
+		name := strings.ReplaceAll(handler.Filename, " ", "")
+		filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
+		url, err := imageupload.UploadService(file, branchFolder, filename)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't uplaod the image.")
+			return
+		}
+		branch.Images = append(branch.Images, url)
+		updated_at, _ := helpers.GetTime()
+
+		filter := bson.M{"branch_id": id}
+		upsert := true
+		options := options.UpdateOptions{
+			Upsert: &upsert,
+		}
+		updateObj := bson.D{{Key: "$set",
+			Value: bson.D{
+				{Key: "images", Value: branch.Images},
+				{Key: "updated_at", Value: updated_at},
+			}}}
+
+		_, err = database.BranchCollection.UpdateOne(ctx, filter, updateObj, &options)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't update image")
+			return
+		}
+		utils.Message(c, "Image updated successfully.")
+	}
+}
+
+// * DONE
+func BranchRemoveImage() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+		var branch models.Branch
+		id := c.Param("id")
+		imageUrl := c.PostForm("image")
+
+		if err := database.BranchCollection.FindOne(ctx, bson.M{"branch_id": id}).Decode(&branch); err != nil {
+			utils.Error(c, utils.NotFound, "Can't find branch with id.")
+			return
+		}
+
+		if len(branch.Images) <= 0 {
+			utils.Error(c, utils.BadRequest, "Branch doesn't have any images.")
+			return
+		}
+
+		if imageUrl == "" {
+			utils.Error(c, utils.BadRequest, "Please provide image url.")
+			return
+		}
+
+		found := false
+		for i, img := range branch.Images {
+			if img == imageUrl {
+				found = true
+				// remove imageUrl from branch.Images
+				branch.Images = append(branch.Images[:i], branch.Images[i+1:]...)
+				break
+			}
+		}
+
+		if !found {
+			utils.Error(c, utils.BadRequest, "Can't find image in branch.")
+			return
+		}
+
+		image := utils.GetTrimedUrl(imageUrl)
+		if err := imageupload.DeleteService(image); err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't delete image."+err.Error())
+			return
+		}
+
+		updated_at, _ := helpers.GetTime()
+
+		filter := bson.M{"branch_id": id}
+		upsert := true
+		options := options.UpdateOptions{
+			Upsert: &upsert,
+		}
+		updateObj := bson.D{{Key: "$set",
+			Value: bson.D{
+				{Key: "images", Value: branch.Images},
+				{Key: "updated_at", Value: updated_at},
+			}}}
+
+		_, err := database.BranchCollection.UpdateOne(ctx, filter, updateObj, &options)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't update image")
+			return
+		}
+		utils.Message(c, "Image deleted successfully.")
 	}
 }

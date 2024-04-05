@@ -17,6 +17,8 @@ func BranchRoutes(r *gin.Engine) {
 		branch.POST("/create", controllers.CreateBranch())
 		branch.PUT("/update-all/:id", controllers.UpdateBranchDetails())
 		branch.PATCH("/update-branch-status/:id", controllers.UpdateBranchStatus())
+		branch.PATCH("/add-image/:id", controllers.BranchAddImage())
+		branch.DELETE("/delete-image/:id", controllers.BranchRemoveImage())
 		branch.DELETE("/delete/:id", controllers.DeleteBranch())
 	}
 }
