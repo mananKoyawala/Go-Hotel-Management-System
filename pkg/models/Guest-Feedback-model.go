@@ -13,11 +13,11 @@ type GuestFeedback struct {
 	Branch_id          string             `bson:"branch_id,omitempty" json:"branch_id,omitempty"` // to add or show the feedback of specific branch
 	Room_id            string             `bson:"room_id,omitempty" json:"room_id,omitempty"`     // Specific Branch's specific room
 	Description        string             `bson:"description,omitempty" json:"description,omitempty"`
-	Feedback_Type      Feedback_Type      `bson:"feedback_type,omitempty" json:"feedback_type,omitempty"`
+	Feedback_Type      string             `bson:"feedback_type,omitempty" json:"feedback_type,omitempty"`
 	Resolution_Details string             `bson:"resolution_details,omitempty" json:"resolution_details,omitempty"` //Reply from hotel management
 	Status             FeedbackStatus     `bson:"status,omitempty" json:"status,omitempty"`
-	// Images             []string           `bson:"images,omitempty" json:"images,omitempty"`
-	Rating     string    `bson:"rating,omitempty" json:"rating,omitempty"`
-	Created_at time.Time `bson:"created_at,omitempty" json:"created_at,omitempty"`
-	Updated_at time.Time `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
+	Image              string             `bson:"images,omitempty" json:"images,omitempty"`
+	Rating             string             `bson:"rating,omitempty" json:"rating,omitempty"`
+	Created_at         time.Time          `bson:"created_at,omitempty" json:"created_at,omitempty"`
+	Updated_at         time.Time          `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
 }

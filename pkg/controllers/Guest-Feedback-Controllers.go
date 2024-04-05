@@ -1,19 +1,26 @@
 package controllers
 
 import (
+	"fmt"
+	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mananKoyawala/hotel-management-system/pkg/database"
 	"github.com/mananKoyawala/hotel-management-system/pkg/helpers"
 	"github.com/mananKoyawala/hotel-management-system/pkg/models"
+	imageupload "github.com/mananKoyawala/hotel-management-system/pkg/service/image-upload"
 	"github.com/mananKoyawala/hotel-management-system/pkg/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+var feedbackFolder = "feedback"
 
 // * DONE
 func GetAllFeedbacks() gin.HandlerFunc {
@@ -70,6 +77,7 @@ func GetAllFeedbacks() gin.HandlerFunc {
 						{Key: "resolution_details", Value: "$$data.resolution_details"},
 						{Key: "rating", Value: "$$data.rating"},
 						{Key: "status", Value: "$$data.status"},
+						{Key: "image", Value: "$$data.image"},
 					}},
 				}},
 			}},
@@ -140,11 +148,12 @@ func CreateFeedback() gin.HandlerFunc {
 		defer cancel()
 		var feedback models.GuestFeedback
 
-		// check json
-		if err := c.BindJSON(&feedback); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format")
-			return
-		}
+		feedback.Branch_id = c.PostForm("branch_id")
+		feedback.Room_id = c.PostForm("room_id")
+		feedback.Guest_id = c.PostForm("guest_id")
+		feedback.Description = c.PostForm("description")
+		feedback.Feedback_Type = c.PostForm("feedback_type")
+		feedback.Rating = c.PostForm("rating")
 
 		// validate guest details
 		msg, isVal := validateFeedbackDetails(feedback)
@@ -164,12 +173,37 @@ func CreateFeedback() gin.HandlerFunc {
 			return
 		}
 
+		// check file is valid
+		file, handler, err := c.Request.FormFile("file")
+		if err != nil {
+			utils.Error(c, utils.BadRequest, "File was not provided or Invalid file.")
+			return
+		}
+		defer file.Close()
+
+		// check the image file is .png , .jpg , .jpeg
+		ext := filepath.Ext(handler.Filename)
+		if ext != ".jpeg" && ext != ".jpg" && ext != ".png" {
+			utils.Error(c, utils.BadRequest, "Invalid Image file format. Only JPEG, JPG, or PNG files are allowed.")
+			return
+		}
+
 		// generate id, timestamps
 		feedback.ID = primitive.NewObjectID()
 		feedback.Guest_Feedback_id = feedback.ID.Hex()
 		feedback.Status = models.Pending
 		feedback.Created_at, _ = helpers.GetTime()
 		feedback.Updated_at, _ = helpers.GetTime()
+
+		// upload image
+		name := strings.ReplaceAll(handler.Filename, " ", "")
+		filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
+		url, err := imageupload.UploadService(file, feedbackFolder, filename)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't uplaod the image.")
+			return
+		}
+		feedback.Image = url
 
 		// Insert the details
 		result, err := database.GuestFeedbackCollection.InsertOne(ctx, feedback)
@@ -191,11 +225,7 @@ func UpdateFeedbackResolution() gin.HandlerFunc {
 		var feedback models.GuestFeedback
 		id := c.Param("id")
 
-		// Check json
-		if err := c.BindJSON(&feedback); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format")
-			return
-		}
+		feedback.Resolution_Details = c.PostForm("resolution_details")
 
 		if feedback.Resolution_Details == "" || len(feedback.Description) > 150 {
 			utils.Error(c, utils.BadRequest, "Only 150 characters accepted.")
@@ -250,8 +280,19 @@ func DeleteFeedback() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := helpers.GetContext()
 		defer cancel()
-
+		var feedback models.GuestFeedback
 		id := c.Param("id")
+
+		if err := database.GuestFeedbackCollection.FindOne(ctx, bson.M{"guest_feedback_id": id}).Decode(&feedback); err != nil {
+			utils.Error(c, utils.BadRequest, "Can't find feedback with id")
+			return
+		}
+
+		image := utils.GetTrimedUrl(feedback.Image)
+		if err := imageupload.DeleteService(image); err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't delete image."+err.Error())
+			return
+		}
 
 		_, err := database.GuestFeedbackCollection.DeleteOne(ctx, bson.M{"guest_feedback_id": id})
 		if err != nil {
@@ -291,13 +332,13 @@ func validateFeedbackDetails(feedback models.GuestFeedback) (string, bool) {
 	return "", true
 }
 
-func validateFeedbackType(fType models.Feedback_Type) bool {
+func validateFeedbackType(fType string) bool {
 
-	if fType == models.Complaint {
+	if models.Feedback_Type(fType) == models.Complaint {
 		return true
 	}
 
-	if fType == models.Rating {
+	if models.Feedback_Type(fType) == models.Rating {
 		return true
 	}
 
