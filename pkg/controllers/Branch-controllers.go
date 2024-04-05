@@ -91,6 +91,7 @@ func GetBranches() gin.HandlerFunc {
 						{Key: "pincode", Value: "$$data.pincode"},
 						{Key: "status", Value: "$$data.status"},
 						{Key: "images", Value: "$$data.images"},
+						{Key: "total_rooms", Value: "$$data.total_rooms"},
 					}},
 				}},
 			}},

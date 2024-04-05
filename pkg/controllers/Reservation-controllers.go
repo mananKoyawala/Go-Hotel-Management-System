@@ -166,7 +166,7 @@ func CreateReservation() gin.HandlerFunc {
 		}
 
 		// check room occupied by guest
-		if room.Room_Availability == models.Room_Unavailable {
+		if room.Room_Availability == string(models.Room_Unavailable) {
 			utils.Error(c, utils.Conflict, "Room already occupied by guest.")
 			return
 		}

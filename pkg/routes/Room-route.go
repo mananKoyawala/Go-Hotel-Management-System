@@ -16,6 +16,8 @@ func RoomRoutes(r *gin.Engine) {
 		// * Manager
 		room.POST("/create", controllers.CreateRoom())
 		room.PUT("/update-all/:id", controllers.UpdateRoomDetails())
+		room.PATCH("/add-image/:id", controllers.RoomAddImage())
+		room.DELETE("/delete-image/:id", controllers.RoomRemoveImage())
 		room.DELETE("/delete/:id", controllers.DeleteRoom())
 	}
 }

@@ -2,18 +2,25 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mananKoyawala/hotel-management-system/pkg/database"
 	"github.com/mananKoyawala/hotel-management-system/pkg/helpers"
 	"github.com/mananKoyawala/hotel-management-system/pkg/models"
+	imageupload "github.com/mananKoyawala/hotel-management-system/pkg/service/image-upload"
 	"github.com/mananKoyawala/hotel-management-system/pkg/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+var roomFolder = "room"
 
 // * DONE
 func GetRoom() gin.HandlerFunc {
@@ -81,6 +88,7 @@ func GetRooms() gin.HandlerFunc {
 						{Key: "cleaning_status", Value: "$$data.cleaning_status"},
 						{Key: "price", Value: "$$data.price"},
 						{Key: "capacity", Value: "$$data.capacity"},
+						{Key: "images", Value: "$$data.images"},
 					}},
 				}},
 			}},
@@ -177,6 +185,7 @@ func GetRoomsByBranch() gin.HandlerFunc {
 						{Key: "room_availability", Value: "$$data.room_availability"},
 						{Key: "cleaning_status", Value: "$$data.cleaning_status"},
 						{Key: "price", Value: "$$data.price"},
+						{Key: "images", Value: "$$data.images"},
 					}},
 				}},
 			}},
@@ -228,12 +237,13 @@ func CreateRoom() gin.HandlerFunc {
 		ctx, cancel := helpers.GetContext()
 		defer cancel()
 		var room models.Room
+		var branch models.Branch
 
-		// Check json
-		if err := c.BindJSON(&room); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format")
-			return
-		}
+		room.Branch_id = c.PostForm("branch_id")
+		room.Room_Number, _ = strconv.Atoi(c.PostForm("room_number"))
+		room.Room_Type = c.PostForm("room_type")
+		room.Price, _ = strconv.ParseFloat(c.PostForm("price"), 64)
+		room.Capacity, _ = strconv.Atoi(c.PostForm("capacity"))
 
 		// Validate details
 		msg, isVal := validateRoomDetails(room)
@@ -243,8 +253,7 @@ func CreateRoom() gin.HandlerFunc {
 		}
 
 		// Check branch exist or not
-		count, bErr := database.BranchCollection.CountDocuments(ctx, bson.M{"branch_id": room.Branch_id})
-		if bErr != nil || count <= 0 {
+		if err := database.BranchCollection.FindOne(ctx, bson.M{"branch_id": room.Branch_id}).Decode(&branch); err != nil {
 			utils.Error(c, utils.InternalServerError, "Branch doesn't exist")
 			return
 		}
@@ -261,13 +270,56 @@ func CreateRoom() gin.HandlerFunc {
 			return
 		}
 
+		// Check if no files are provided
+		if len(c.Request.MultipartForm.File["file"]) <= 0 {
+			utils.Error(c, utils.BadRequest, "No files provided.")
+			return
+		}
+
+		// Check if more than 5 files are uploaded
+		if len(c.Request.MultipartForm.File["file"]) > maxFiles {
+			message := fmt.Sprintf("Only %d files can be uploaded.", maxFiles)
+			utils.Error(c, utils.BadRequest, message)
+			return
+		}
+
+		// check that all the provided files are .png .jpeg or .jpg
+		for _, fileHeader := range c.Request.MultipartForm.File["file"] {
+			file, err := fileHeader.Open()
+			if err != nil {
+				utils.Error(c, utils.BadRequest, "File was not provided or Invalid file.")
+				return
+			}
+			defer file.Close()
+
+			// Check the image file is .png , .jpg , .jpeg
+			ext := filepath.Ext(fileHeader.Filename)
+			if ext != ".jpeg" && ext != ".jpg" && ext != ".png" {
+				utils.Error(c, utils.BadRequest, "Invalid Image file format. Only JPEG, JPG, or PNG files are allowed.")
+				return
+			}
+		}
+
 		// Generate ID and Timestamp
 		room.ID = primitive.NewObjectID()
 		room.Room_id = room.ID.Hex()
-		room.Room_Availability = models.Room_Available
-		room.Cleaning_Status = models.Cleaned
+		room.Room_Availability = string(models.Room_Available)
+		room.Cleaning_Status = string(models.Cleaned)
 		room.Created_at, _ = helpers.GetTime()
 		room.Updated_at, _ = helpers.GetTime()
+
+		// upload files here
+		for _, fileHeader := range c.Request.MultipartForm.File["file"] {
+			name := strings.ReplaceAll(fileHeader.Filename, " ", "")
+			file, _ := fileHeader.Open()
+			filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
+			url, err := imageupload.UploadService(file, roomFolder, filename)
+			if err != nil {
+				utils.Error(c, utils.InternalServerError, "Can't uplaod the image.")
+				return
+			}
+			room.Images = append(room.Images, url)
+		}
 
 		// Insert Room Details
 		result, err := database.RoomCollection.InsertOne(ctx, room)
@@ -276,6 +328,19 @@ func CreateRoom() gin.HandlerFunc {
 			return
 		}
 
+		branch.Total_Rooms++
+		branch.Updated_at, _ = helpers.GetTime()
+		updateObj := bson.D{
+			{Key: "$set", Value: bson.D{
+				{Key: "total_rooms", Value: branch.Total_Rooms},
+				{Key: "updated_at", Value: branch.Updated_at},
+			}},
+		}
+		_, err = database.BranchCollection.UpdateOne(ctx, bson.M{"branch_id": branch.Branch_id}, updateObj)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't update total_rooms.")
+			return
+		}
 		// If of reture response
 		utils.Response(c, result)
 	}
@@ -290,11 +355,11 @@ func UpdateRoomDetails() gin.HandlerFunc {
 		var room models.Room
 		id := c.Param("id")
 
-		// Check json
-		if err := c.BindJSON(&room); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format")
-			return
-		}
+		room.Room_Number, _ = strconv.Atoi(c.PostForm("room_number"))
+		room.Room_Type = c.PostForm("room_type")
+		room.Cleaning_Status = c.PostForm("cleaning_status")
+		room.Room_Availability = c.PostForm("room_availability")
+		room.Price, _ = strconv.ParseFloat(c.PostForm("price"), 64)
 
 		// Validate data
 		msg, isval := validateUpdateRoomDetails(room)
@@ -340,14 +405,48 @@ func DeleteRoom() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := helpers.GetContext()
 		defer cancel()
-
+		var room models.Room
+		var branch models.Branch
 		id := c.Param("id")
+
+		if err := database.RoomCollection.FindOne(ctx, bson.M{"room_id": id}).Decode(&room); err != nil {
+			utils.Error(c, utils.BadRequest, "Can't find room with id")
+			return
+		}
+
+		for _, i := range room.Images {
+			image := utils.GetTrimedUrl(i)
+			if err := imageupload.DeleteService(image); err != nil {
+				utils.Error(c, utils.InternalServerError, "Can't delete image."+err.Error())
+				return
+			}
+		}
 
 		_, err := database.RoomCollection.DeleteOne(ctx, bson.M{"room_id": id})
 		if err != nil {
 			utils.Error(c, utils.InternalServerError, "Can't delete room.")
 			return
 		}
+
+		if err := database.BranchCollection.FindOne(ctx, bson.M{"branch_id": room.Branch_id}).Decode(&branch); err != nil {
+			utils.Error(c, utils.BadRequest, "Can't find branch with id")
+			return
+		}
+
+		branch.Total_Rooms--
+		branch.Updated_at, _ = helpers.GetTime()
+		updateObj := bson.D{
+			{Key: "$set", Value: bson.D{
+				{Key: "total_rooms", Value: branch.Total_Rooms},
+				{Key: "updated_at", Value: branch.Updated_at},
+			}},
+		}
+		_, err = database.BranchCollection.UpdateOne(ctx, bson.M{"branch_id": branch.Branch_id}, updateObj)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't update total_rooms.")
+			return
+		}
+
 		utils.Message(c, "Room deleted successfully.")
 	}
 }
@@ -401,72 +500,200 @@ func validateUpdateRoomDetails(room models.Room) (string, bool) {
 		return "Room price must be integer.", false
 	}
 
-	if !utils.IsNonNegative(room.Capacity) {
-		return "Room capacity must be integer.", false
-	}
-
 	return "", true
 }
 
-func checkRoomType(roomType models.Room_Type) bool {
+// * DONE
+func RoomAddImage() gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+		var room models.Room
+		id := c.Param("id")
+
+		if err := database.RoomCollection.FindOne(ctx, bson.M{"room_id": id}).Decode(&room); err != nil {
+			utils.Error(c, utils.NotFound, "Can't find room with id.")
+			return
+		}
+
+		if len(room.Images) >= 5 {
+			utils.Error(c, utils.BadRequest, "Maximum 5 images already uploaded.")
+			return
+		}
+
+		file, handler, err := c.Request.FormFile("file")
+		if err != nil {
+			utils.Error(c, utils.BadRequest, "File was not provided or Invalid file.")
+			return
+		}
+		defer file.Close()
+
+		// check the image file is .png , .jpg , .jpeg
+		ext := filepath.Ext(handler.Filename)
+		if ext != ".jpeg" && ext != ".jpg" && ext != ".png" {
+			utils.Error(c, utils.BadRequest, "Invalid Image file format. Only JPEG, JPG, or PNG files are allowed.")
+			return
+		}
+
+		// upload image
+		name := strings.ReplaceAll(handler.Filename, " ", "")
+		filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
+		url, err := imageupload.UploadService(file, roomFolder, filename)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't uplaod the image.")
+			return
+		}
+		room.Images = append(room.Images, url)
+		updated_at, _ := helpers.GetTime()
+
+		filter := bson.M{"room_id": id}
+		upsert := true
+		options := options.UpdateOptions{
+			Upsert: &upsert,
+		}
+		updateObj := bson.D{{Key: "$set",
+			Value: bson.D{
+				{Key: "images", Value: room.Images},
+				{Key: "updated_at", Value: updated_at},
+			}}}
+
+		_, err = database.RoomCollection.UpdateOne(ctx, filter, updateObj, &options)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't update image")
+			return
+		}
+		utils.Message(c, "Image updated successfully.")
+	}
+}
+
+// * DONE
+func RoomRemoveImage() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+		var room models.Room
+		id := c.Param("id")
+		imageUrl := c.PostForm("image")
+
+		if err := database.RoomCollection.FindOne(ctx, bson.M{"room_id": id}).Decode(&room); err != nil {
+			utils.Error(c, utils.NotFound, "Can't find room with id.")
+			return
+		}
+
+		if len(room.Images) <= 0 {
+			utils.Error(c, utils.BadRequest, "Room doesn't have any images.")
+			return
+		}
+
+		if imageUrl == "" {
+			utils.Error(c, utils.BadRequest, "Please provide image url.")
+			return
+		}
+
+		found := false
+		for i, img := range room.Images {
+			if img == imageUrl {
+				found = true
+				// remove imageUrl from room.Images
+				room.Images = append(room.Images[:i], room.Images[i+1:]...)
+				break
+			}
+		}
+
+		if !found {
+			utils.Error(c, utils.BadRequest, "Can't find image in room.")
+			return
+		}
+
+		image := utils.GetTrimedUrl(imageUrl)
+		if err := imageupload.DeleteService(image); err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't delete image."+err.Error())
+			return
+		}
+
+		updated_at, _ := helpers.GetTime()
+
+		filter := bson.M{"room_id": id}
+		upsert := true
+		options := options.UpdateOptions{
+			Upsert: &upsert,
+		}
+		updateObj := bson.D{{Key: "$set",
+			Value: bson.D{
+				{Key: "images", Value: room.Images},
+				{Key: "updated_at", Value: updated_at},
+			}}}
+
+		_, err := database.RoomCollection.UpdateOne(ctx, filter, updateObj, &options)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't update image")
+			return
+		}
+		utils.Message(c, "Image deleted successfully.")
+	}
+}
+
+func checkRoomType(roomType string) bool {
 
 	if roomType == "" {
 		return false
 	}
 
-	if roomType == models.Single_Bad {
+	if models.Room_Type(roomType) == models.Single_Bad {
 		return true
 	}
 
-	if roomType == models.Double_Bad {
+	if models.Room_Type(roomType) == models.Double_Bad {
 		return true
 	}
 
-	if roomType == models.Suite {
+	if models.Room_Type(roomType) == models.Suite {
 		return true
 	}
 
 	return false
 }
 
-func checkRoomStatus(status models.Cleaning_Status) bool {
+func checkRoomStatus(status string) bool {
 
 	if status == "" {
 		return false
 	}
 
-	if status == models.Cleaned {
+	if models.Cleaning_Status(status) == models.Cleaned {
 		return true
 	}
 
-	if status == models.Dirty {
+	if models.Cleaning_Status(status) == models.Dirty {
 		return true
 	}
 
-	if status == models.InProgress {
+	if models.Cleaning_Status(status) == models.InProgress {
 		return true
 	}
 
 	return true
 }
 
-func checkRoomAvailability(avail models.Room_Availability) bool {
+func checkRoomAvailability(avail string) bool {
 
 	if avail == "" {
 		return false
 	}
 
-	if avail == models.Room_Available {
+	if models.Room_Availability(avail) == models.Room_Available {
 		return true
 	}
 
-	if avail == models.Room_Unavailable {
+	if models.Room_Availability(avail) == models.Room_Unavailable {
 		return true
 	}
 
 	return true
 }
 
+// NOT USED FOR THIS API
 func IncreaseRoomCapacity() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := helpers.GetContext()
