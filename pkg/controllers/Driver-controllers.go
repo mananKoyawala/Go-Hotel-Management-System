@@ -549,6 +549,7 @@ func DeleteDriver() gin.HandlerFunc {
 	}
 }
 
+// * DONE
 func UpdateDriverProfilePicture() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := helpers.GetContext()
