@@ -1,18 +1,26 @@
 package controllers
 
 import (
+	"fmt"
+	"log"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mananKoyawala/hotel-management-system/pkg/database"
 	"github.com/mananKoyawala/hotel-management-system/pkg/helpers"
 	"github.com/mananKoyawala/hotel-management-system/pkg/models"
+	imageupload "github.com/mananKoyawala/hotel-management-system/pkg/service/image-upload"
 	"github.com/mananKoyawala/hotel-management-system/pkg/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+var driverFolder = "driver"
 
 // * DONE
 func GetAllDrivers() gin.HandlerFunc {
@@ -68,6 +76,7 @@ func GetAllDrivers() gin.HandlerFunc {
 						{Key: "pickup_location", Value: "$$data.pickup_location"},
 						{Key: "salary", Value: "$$data.salary"},
 						{Key: "status", Value: "$$data.status"},
+						{Key: "image", Value: "$$data.image"},
 					}},
 				}},
 			}},
@@ -138,10 +147,8 @@ func DriverLogin() gin.HandlerFunc {
 		var driver models.Driver
 		var foundDriver models.Driver
 
-		if err := c.BindJSON(&driver); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format.")
-			return
-		}
+		driver.Email = c.PostForm("email")
+		driver.Password = c.PostForm("password")
 
 		// Check Email
 		if err := database.DriverCollection.FindOne(ctx, bson.M{"email": driver.Email}).Decode(&foundDriver); err != nil {
@@ -180,16 +187,37 @@ func CreateDriver() gin.HandlerFunc {
 		defer cancel()
 		var driver models.Driver
 
-		// check json
-		if err := c.BindJSON(&driver); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format")
-			return
-		}
+		driver.First_Name = c.PostForm("first_name")
+		driver.Last_Name = c.PostForm("last_name")
+		driver.Email = c.PostForm("email")
+		driver.Password = c.PostForm("password")
+		driver.Gender = c.PostForm("gender")
+		driver.Age, _ = strconv.Atoi(c.PostForm("age"))
+		driver.Car_Company = c.PostForm("car_company")
+		driver.Car_Model = c.PostForm("car_model")
+		driver.Car_Number_Plate = c.PostForm("car_number_plate")
+		driver.Phone, _ = strconv.Atoi(c.PostForm("phone"))
+		driver.Salary, _ = strconv.ParseFloat(c.PostForm("salary"), 64)
 
 		// validate details
 		msg, val := validateDriverDetails(driver)
 		if !val {
 			utils.Error(c, utils.BadRequest, msg)
+			return
+		}
+
+		// check file is valid
+		file, handler, err := c.Request.FormFile("file")
+		if err != nil {
+			utils.Error(c, utils.BadRequest, "File was not provided or Invalid file.")
+			return
+		}
+		defer file.Close()
+
+		// check the image file is .png , .jpg , .jpeg
+		ext := filepath.Ext(handler.Filename)
+		if ext != ".jpeg" && ext != ".jpg" && ext != ".png" {
+			utils.Error(c, utils.BadRequest, "Invalid Image file format. Only JPEG, JPG, or PNG files are allowed.")
 			return
 		}
 
@@ -227,6 +255,16 @@ func CreateDriver() gin.HandlerFunc {
 		driver.Token = token
 		driver.Refresh_Token = refreshToken
 
+		// upload image
+		name := strings.ReplaceAll(handler.Filename, " ", "")
+		filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
+		url, err := imageupload.UploadService(file, driverFolder, filename)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't uplaod the image.")
+			return
+		}
+		driver.Image = url
+
 		// insert driver
 		result, err := database.DriverCollection.InsertOne(ctx, driver)
 		if err != nil {
@@ -247,11 +285,15 @@ func UpdateDriverDetails() gin.HandlerFunc {
 		var driver models.Driver
 		id := c.Param("id")
 
-		// Check json
-		if err := c.BindJSON(&driver); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format")
-			return
-		}
+		driver.First_Name = c.PostForm("first_name")
+		driver.Last_Name = c.PostForm("last_name")
+		driver.Gender = c.PostForm("gender")
+		driver.Age, _ = strconv.Atoi(c.PostForm("age"))
+		driver.Car_Company = c.PostForm("car_company")
+		driver.Car_Model = c.PostForm("car_model")
+		driver.Car_Number_Plate = c.PostForm("car_number_plate")
+		driver.Phone, _ = strconv.Atoi(c.PostForm("phone"))
+		driver.Salary, _ = strconv.ParseFloat(c.PostForm("salary"), 64)
 
 		// Validate data
 		msg, isVal := validateDriverUpdateDetails(driver)
@@ -260,7 +302,7 @@ func UpdateDriverDetails() gin.HandlerFunc {
 			return
 		}
 
-		// check staff exist or not
+		// check driver exist or not
 		count, err := database.DriverCollection.CountDocuments(ctx, bson.M{"driver_id": id})
 		if err != nil {
 			utils.Error(c, utils.InternalServerError, "Error while checking driver.")
@@ -281,8 +323,6 @@ func UpdateDriverDetails() gin.HandlerFunc {
 		updateObj = append(updateObj, bson.E{Key: "last_name", Value: driver.Last_Name})
 
 		updateObj = append(updateObj, bson.E{Key: "gender", Value: driver.Gender})
-
-		updateObj = append(updateObj, bson.E{Key: "email", Value: driver.Email})
 
 		updateObj = append(updateObj, bson.E{Key: "phone", Value: driver.Phone})
 
@@ -415,11 +455,8 @@ func ResetDriverPassword() gin.HandlerFunc {
 		defer cancel()
 		var driver models.Driver
 
-		// check format
-		if err := c.BindJSON(&driver); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format.")
-			return
-		}
+		driver.Email = c.PostForm("email")
+		driver.Password = c.PostForm("password")
 
 		// validate email
 		if !utils.ValidateEmail(driver.Email) {
@@ -488,8 +525,20 @@ func DeleteDriver() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := helpers.GetContext()
 		defer cancel()
-
+		var driver models.Driver
 		id := c.Param("id")
+
+		if err := database.DriverCollection.FindOne(ctx, bson.M{"driver_id": id}).Decode(&driver); err != nil {
+			utils.Error(c, utils.BadRequest, "Can't find driver with id")
+			return
+		}
+
+		image := utils.GetTrimedUrl(driver.Image)
+		if err := imageupload.DeleteService(image); err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't delete image."+err.Error())
+			return
+		}
+
 		_, err := database.DriverCollection.DeleteOne(ctx, bson.M{"driver_id": id})
 		if err != nil {
 			utils.Error(c, utils.InternalServerError, "Can't delete driver with id.")
@@ -497,6 +546,77 @@ func DeleteDriver() gin.HandlerFunc {
 		}
 
 		utils.Message(c, "Driver is successfully deleted.")
+	}
+}
+
+func UpdateDriverProfilePicture() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+		var driver models.Driver
+
+		// get id
+		id := c.Param("id")
+
+		// check the file
+		file, handler, err := c.Request.FormFile("file")
+		if err != nil {
+			utils.Error(c, utils.BadRequest, "File was not provided or Invalid file.")
+			return
+		}
+		defer file.Close()
+
+		// check the image file is .png , .jpg , .jpeg
+		ext := filepath.Ext(handler.Filename)
+		if ext != ".jpeg" && ext != ".jpg" && ext != ".png" {
+			utils.Error(c, utils.BadRequest, "Invalid Image file format. Only JPEG, JPG, or PNG files are allowed.")
+			return
+		}
+
+		// get url details for image url
+		if err := database.DriverCollection.FindOne(ctx, bson.M{"driver_id": id}).Decode(&driver); err != nil {
+			utils.Error(c, utils.BadRequest, "Can't find driver with id")
+			return
+		}
+		log.Println(driver.Image)
+		// delete file
+		image := utils.GetTrimedUrl(driver.Image)
+		if err := imageupload.DeleteService(image); err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't delete image."+err.Error())
+			return
+		}
+
+		// upload new file
+		name := strings.ReplaceAll(handler.Filename, " ", "")
+		filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
+		url, err := imageupload.UploadService(file, driverFolder, filename)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't upload image."+err.Error())
+			return
+		}
+
+		// update new uploaded file
+		updated_at, _ := helpers.GetTime()
+		filter := bson.M{"driver_id": id}
+		upsert := true
+		options := options.UpdateOptions{
+			Upsert: &upsert,
+		}
+		updateObj := bson.D{
+			{Key: "$set", Value: bson.D{
+				{Key: "image", Value: url},
+				{Key: `updated_at`, Value: updated_at},
+			}},
+		}
+
+		_, err = database.DriverCollection.UpdateOne(ctx, filter, updateObj, &options)
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Can't update image.")
+			return
+		}
+
+		// if success return
+		utils.Message(c, "Image updated successfully.")
 	}
 }
 
@@ -584,12 +704,6 @@ func validateDriverUpdateDetails(driver models.Driver) (string, bool) {
 
 	if utils.CheckLength(driver.Phone, 10) {
 		return "Phone number must be 10 digits", false
-	}
-
-	if driver.Email == "" {
-		return "Email address required", false
-	} else if !utils.ValidateEmail(driver.Email) {
-		return "Invalid email address", false
 	}
 
 	if !utils.IsNonNegative(int(driver.Salary)) {

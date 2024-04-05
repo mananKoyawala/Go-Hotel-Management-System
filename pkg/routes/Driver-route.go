@@ -18,6 +18,7 @@ func DriverRoutes(r *gin.Engine) {
 		driver.PATCH("/update-status/:id", controllers.UpdateDriverStatus())
 		driver.DELETE("/delete/:id", controllers.DeleteDriver())
 		// * Driver
+		driver.PATCH("/update-profile-pic/:id", controllers.UpdateDriverProfilePicture())
 		driver.PATCH("/update-password", controllers.ResetDriverPassword())
 		driver.PATCH("/update-availability/:id", controllers.UpdateDriverAvailability()) // status is changed based on reservation
 	}
