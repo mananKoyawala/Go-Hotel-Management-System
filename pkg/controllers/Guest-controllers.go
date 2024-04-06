@@ -12,6 +12,7 @@ import (
 	"github.com/mananKoyawala/hotel-management-system/pkg/database"
 	"github.com/mananKoyawala/hotel-management-system/pkg/helpers"
 	"github.com/mananKoyawala/hotel-management-system/pkg/models"
+	emailverification "github.com/mananKoyawala/hotel-management-system/pkg/service/Email-Verification"
 	imageupload "github.com/mananKoyawala/hotel-management-system/pkg/service/image-upload"
 	"github.com/mananKoyawala/hotel-management-system/pkg/utils"
 	"go.mongodb.org/mongo-driver/bson"
@@ -195,6 +196,7 @@ func GuestSignup() gin.HandlerFunc {
 		guest.Access_Type = models.Guest_Access
 		guest.ID = primitive.NewObjectID()
 		guest.Guest_id = guest.ID.Hex()
+		guest.IsVerified = "false"
 		guest.Created_at, _ = helpers.GetTime()
 		guest.Updated_at, _ = helpers.GetTime()
 
@@ -222,8 +224,16 @@ func GuestSignup() gin.HandlerFunc {
 			return
 		}
 
+		if err := emailverification.GenerateEmailVerificationLink(guest.Guest_id); err != nil {
+			utils.Error(c, utils.InternalServerError, err.Error())
+			return
+		}
+
 		// if success return
-		utils.Response(c, result)
+		c.JSON(utils.OK, gin.H{
+			"result":  result,
+			"message": "Verification link is send to email",
+		})
 	}
 }
 
@@ -241,6 +251,11 @@ func GuestLogin() gin.HandlerFunc {
 		// Check Email
 		if err := database.GuestCollection.FindOne(ctx, bson.M{"email": guest.Email}).Decode(&foundGuest); err != nil {
 			utils.Error(c, utils.InternalServerError, "Can't find guest with Email id.")
+			return
+		}
+
+		if foundGuest.IsVerified != "true" {
+			utils.Error(c, utils.BadRequest, "Guest is not verified.")
 			return
 		}
 
@@ -265,6 +280,71 @@ func GuestLogin() gin.HandlerFunc {
 
 		// Return as response
 		utils.Response(c, foundGuest)
+	}
+}
+
+// * DONE
+func VerifyGuest() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+
+		if err := emailverification.VerifyEmail(c, ctx); err != nil {
+			htmlContentError := `<!DOCTYPE html>
+		<html>
+		  <head>
+			<style>
+			  body {
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				height: 100vh;
+				margin: 0;
+				background-color: #f0f0f0;
+			  }
+		
+			  .message {
+				text-align: center;
+				font-size: 34px;
+				color: black;
+			  }
+			</style>
+		  </head>
+		  <body>
+			<div class="message">` + err.Error() + `</div>
+		  </body>
+		</html>`
+			log.Println(err.Error())
+			c.Data(utils.OK, "text/html; charset=utf-8", []byte(htmlContentError))
+			return
+		}
+
+		htmlContent := `<!DOCTYPE html>
+		<html>
+		  <head>
+			<style>
+			  body {
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				height: 100vh;
+				margin: 0;
+				background-color: #f0f0f0;
+			  }
+		
+			  .message {
+				text-align: center;
+				font-size: 34px;
+				color: black;
+			  }
+			</style>
+		  </head>
+		  <body>
+			<div class="message">Guest verification successfully done.</div>
+		  </body>
+		</html>`
+
+		c.Data(utils.OK, "text/html; charset=utf-8", []byte(htmlContent))
 	}
 }
 

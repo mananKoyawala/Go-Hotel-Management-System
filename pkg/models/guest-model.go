@@ -22,6 +22,7 @@ type Guest struct {
 	Refresh_Token string             `bson:"refresh_token,omitempty" json:"refresh_token,omitempty"`
 	Image         string             `bson:"image,omitempty" json:"image,omitempty"`
 	Access_Type   Access_Type        `bson:"access_type,omitempty" json:"access_type,omitempty"`
+	IsVerified    string             `bson:"is_verified,omitempty" json:"is_verified,omitempty"`
 	Created_at    time.Time          `bson:"created_at,omitempty" json:"created_at,omitempty"`
 	Updated_at    time.Time          `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
 }

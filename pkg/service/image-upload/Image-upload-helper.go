@@ -18,6 +18,7 @@ import (
 var ctx = context.Background()
 var opt = option.WithCredentialsFile("pkg/service/image-upload/serviceAccountKey.json") // Replace with your service account key path
 var config = &firebase.Config{StorageBucket: "golangwithfirebase.appspot.com"}          // Replace with your Firebase Storage bucket name
+// TODO : Change the serviceAccountKey.json with your file
 
 func UploadService(file io.Reader, foldername string, filename string) (string, error) {
 
