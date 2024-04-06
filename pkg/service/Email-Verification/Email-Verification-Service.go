@@ -41,7 +41,7 @@ type EmailVerification struct {
 }
 
 // * DONE
-func GenerateEmailVerificationLink(id string) error {
+func GenerateEmailVerificationLink(id, userEmail string) error {
 	ctx, cancel := helpers.GetContext()
 	defer cancel()
 	var verification EmailVerification
@@ -74,7 +74,7 @@ func GenerateEmailVerificationLink(id string) error {
 	link := fmt.Sprintf("http://localhost:%s/guest/verify-email/confirm?expires=%d&hash=%s&id=%s&signature=%s", PORT, verification.ExpiresAt, tokenHash, verification.Guest_id, signature)
 
 	// send the email if success
-	err = sendMail(link)
+	err = sendMail(link, userEmail)
 	if err != nil {
 		return err
 	}
@@ -178,15 +178,15 @@ func VerifyEmail(c *gin.Context, ctx context.Context) error {
 	return nil
 }
 
-func sendMail(link string) error {
+func sendMail(link, userEmail string) error {
 	var RESEND_API_KEY = os.Getenv("RESEND_API_KEY")
 
 	client := resend.NewClient(RESEND_API_KEY)
 
 	params := &resend.SendEmailRequest{
 		From:    "onboarding@resend.dev",
-		To:      []string{"manankoyawala5565@gmail.com"},
-		Subject: "Hello World",
+		To:      []string{userEmail},
+		Subject: "Email verification",
 		Html: `<!DOCTYPE html>
 			<html lang="en">
 			<head>

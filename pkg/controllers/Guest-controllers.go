@@ -224,7 +224,7 @@ func GuestSignup() gin.HandlerFunc {
 			return
 		}
 
-		if err := emailverification.GenerateEmailVerificationLink(guest.Guest_id); err != nil {
+		if err := emailverification.GenerateEmailVerificationLink(guest.Guest_id, guest.Email); err != nil {
 			utils.Error(c, utils.InternalServerError, err.Error())
 			return
 		}
