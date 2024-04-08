@@ -363,7 +363,7 @@ func UpdateBranchStatus() gin.HandlerFunc {
 		id := c.Param("id")
 
 		if err := database.BranchCollection.FindOne(ctx, bson.M{"branch_id": id}).Decode(&branch); err != nil {
-			utils.Error(c, utils.InternalServerError, "Can't find branch with id")
+			utils.Error(c, utils.NotFound, "Can't find branch with id")
 			return
 		}
 

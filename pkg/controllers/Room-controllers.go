@@ -32,7 +32,7 @@ func GetRoom() gin.HandlerFunc {
 		id := c.Param("id")
 
 		if err := database.RoomCollection.FindOne(ctx, bson.M{"room_id": id}).Decode(&room); err != nil {
-			utils.Error(c, utils.InternalServerError, "Can't find the room with id.")
+			utils.Error(c, utils.NotFound, "Can't find the room with id.")
 			return
 		}
 
@@ -254,7 +254,7 @@ func CreateRoom() gin.HandlerFunc {
 
 		// Check branch exist or not
 		if err := database.BranchCollection.FindOne(ctx, bson.M{"branch_id": room.Branch_id}).Decode(&branch); err != nil {
-			utils.Error(c, utils.InternalServerError, "Branch doesn't exist")
+			utils.Error(c, utils.NotFound, "Branch doesn't exist")
 			return
 		}
 
@@ -266,7 +266,7 @@ func CreateRoom() gin.HandlerFunc {
 		}
 
 		if count > 0 {
-			utils.Error(c, utils.BadRequest, "Room Number already Exist with Branch id.")
+			utils.Error(c, utils.Conflict, "Room Number already Exist with Branch id.")
 			return
 		}
 
@@ -410,7 +410,7 @@ func DeleteRoom() gin.HandlerFunc {
 		id := c.Param("id")
 
 		if err := database.RoomCollection.FindOne(ctx, bson.M{"room_id": id}).Decode(&room); err != nil {
-			utils.Error(c, utils.BadRequest, "Can't find room with id")
+			utils.Error(c, utils.NotFound, "Can't find room with id")
 			return
 		}
 
@@ -429,7 +429,7 @@ func DeleteRoom() gin.HandlerFunc {
 		}
 
 		if err := database.BranchCollection.FindOne(ctx, bson.M{"branch_id": room.Branch_id}).Decode(&branch); err != nil {
-			utils.Error(c, utils.BadRequest, "Can't find branch with id")
+			utils.Error(c, utils.NotFound, "Can't find branch with id")
 			return
 		}
 

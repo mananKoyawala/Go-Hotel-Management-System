@@ -152,7 +152,7 @@ func DriverLogin() gin.HandlerFunc {
 
 		// Check Email
 		if err := database.DriverCollection.FindOne(ctx, bson.M{"email": driver.Email}).Decode(&foundDriver); err != nil {
-			utils.Error(c, utils.InternalServerError, "Can't find driver with Email id.")
+			utils.Error(c, utils.NotFound, "Can't find driver with Email id.")
 			return
 		}
 
@@ -229,7 +229,7 @@ func CreateDriver() gin.HandlerFunc {
 		}
 
 		if count > 0 {
-			utils.Error(c, utils.BadRequest, "Driver already exists with email and car number plate.")
+			utils.Error(c, utils.Conflict, "Driver already exists with email and car number plate.")
 			return
 		}
 

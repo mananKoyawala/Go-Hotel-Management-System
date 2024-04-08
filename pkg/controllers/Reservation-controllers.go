@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"log"
 	"strconv"
 	"time"
 
@@ -129,7 +128,7 @@ func GetReservation() gin.HandlerFunc {
 		id := c.Param("id")
 
 		if err := database.ReservationCollection.FindOne(ctx, bson.M{"reservation_id": id}).Decode(&reservation); err != nil {
-			utils.Error(c, utils.InternalServerError, "Can't find the reservation with id.")
+			utils.Error(c, utils.NotFound, "Can't find the reservation with id.")
 			return
 		}
 
@@ -146,11 +145,12 @@ func CreateReservation() gin.HandlerFunc {
 		var reservation models.Reservation
 		var room models.Room
 
-		// check json
-		if err := c.BindJSON(&reservation); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format.")
-			return
-		}
+		reservation.Room_id = c.PostForm("room_id")
+		reservation.Guest_id = c.PostForm("guest_id")
+		reservation.Check_in_time = c.PostForm("check_in_time")
+		reservation.Check_out_time = c.PostForm("check_out_time")
+		reservation.Deposit_Amount, _ = strconv.ParseFloat(c.PostForm("desposit_amount"), 64)
+		reservation.Numbers_of_guests, _ = strconv.Atoi(c.PostForm("numbers_of_guests"))
 
 		// validate details
 		msg, val := valiadateReservationDetails(reservation)
@@ -190,7 +190,7 @@ func CreateReservation() gin.HandlerFunc {
 		// generate id, timestamps
 		reservation.ID = primitive.NewObjectID()
 		reservation.Reservation_id = reservation.ID.Hex()
-		reservation.IsCheckOut = models.False
+		reservation.IsCheckOut = string(models.False)
 		reservation.Created_at, _ = helpers.GetTime()
 		reservation.Updated_at, _ = helpers.GetTime()
 
@@ -221,11 +221,11 @@ func UpdateReservationDetails() gin.HandlerFunc {
 		var foundReservation models.Reservation
 		id := c.Param("id")
 
-		// Check json
-		if err := c.BindJSON(&reservation); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format")
-			return
-		}
+		reservation.Check_in_time = c.PostForm("check_in_time")
+		reservation.Check_out_time = c.PostForm("check_out_time")
+		reservation.Deposit_Amount, _ = strconv.ParseFloat(c.PostForm("desposit_amount"), 64)
+		reservation.Numbers_of_guests, _ = strconv.Atoi(c.PostForm("numbers_of_guests"))
+		reservation.IsCheckOut = c.PostForm("is_check_out")
 
 		// Validate data
 		msg, isval := valiadateUpdateReservationDetails(reservation)
@@ -240,7 +240,7 @@ func UpdateReservationDetails() gin.HandlerFunc {
 			return
 		}
 
-		if foundReservation.IsCheckOut == models.True {
+		if foundReservation.IsCheckOut == string(models.True) {
 			utils.Error(c, utils.Conflict, "User has been already checked out.")
 			return
 		}
@@ -348,7 +348,7 @@ func valiadateUpdateReservationDetails(reservation models.Reservation) (string, 
 	if reservation.Numbers_of_guests <= 0 {
 		return "Number of guest is not less or equal 0", false
 	}
-	log.Println(reservation.IsCheckOut)
+	// log.Println(reservation.IsCheckOut)
 	if !validateIsCheckOut(reservation.IsCheckOut) {
 		return "Is check out must be true or false", false
 	}
@@ -356,6 +356,6 @@ func valiadateUpdateReservationDetails(reservation models.Reservation) (string, 
 	return "", true
 }
 
-func validateIsCheckOut(checkout models.BOOL) bool {
-	return checkout == models.True || checkout == models.False
+func validateIsCheckOut(checkout string) bool {
+	return models.BOOL(checkout) == models.True || models.BOOL(checkout) == models.False
 }

@@ -240,7 +240,7 @@ func UpdateFeedbackResolution() gin.HandlerFunc {
 		}
 
 		if !(count > 0) {
-			utils.Error(c, utils.BadRequest, "Can't find feedback with id.")
+			utils.Error(c, utils.NotFound, "Can't find feedback with id.")
 			return
 		}
 
@@ -284,7 +284,7 @@ func DeleteFeedback() gin.HandlerFunc {
 		id := c.Param("id")
 
 		if err := database.GuestFeedbackCollection.FindOne(ctx, bson.M{"guest_feedback_id": id}).Decode(&feedback); err != nil {
-			utils.Error(c, utils.BadRequest, "Can't find feedback with id")
+			utils.Error(c, utils.NotFound, "Can't find feedback with id")
 			return
 		}
 

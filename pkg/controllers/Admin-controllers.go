@@ -31,7 +31,7 @@ func AdminLogin() gin.HandlerFunc {
 		}
 
 		if err := database.AdminCollection.FindOne(ctx, bson.M{"email": admin.Email}).Decode(&foundAdmin); err != nil {
-			utils.Error(c, utils.InternalServerError, "Error while fetching data")
+			utils.Error(c, utils.NotFound, "Can't find admin email")
 			return
 		}
 

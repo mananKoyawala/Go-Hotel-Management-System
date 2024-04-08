@@ -116,7 +116,7 @@ func GetPickUpService() gin.HandlerFunc {
 		id := c.Param("id")
 
 		if err := database.PickupServiceCollection.FindOne(ctx, bson.M{"pickup_service_id": id}).Decode(&service); err != nil {
-			utils.Error(c, utils.InternalServerError, "Can't find the service with id.")
+			utils.Error(c, utils.NotFound, "Can't find the service with id.")
 			return
 		}
 
@@ -131,11 +131,11 @@ func CreatePickUpService() gin.HandlerFunc {
 		defer cancel()
 		var service models.PickupService
 
-		// Check json
-		if err := c.BindJSON(&service); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format")
-			return
-		}
+		service.Guest_id = c.PostForm("guest_id")
+		service.Branch_id = c.PostForm("branch_id")
+		service.Driver_id = c.PostForm("driver_id")
+		service.Pickup_Location = c.PostForm("pickup_location")
+		service.Pickup_Time = c.PostForm("pickup_time")
 
 		// Validate details
 		msg, isVal := validatePickUpServiceDetails(service)
@@ -152,7 +152,7 @@ func CreatePickUpService() gin.HandlerFunc {
 		}
 
 		if count > 0 {
-			utils.Error(c, utils.BadRequest, "Service already exists with branch_id, guest_id and driver_id")
+			utils.Error(c, utils.Conflict, "Service already exists with branch_id, guest_id and driver_id")
 			return
 		}
 
@@ -184,11 +184,8 @@ func UpdatePickUpServiceDetails() gin.HandlerFunc {
 		var service models.PickupService
 		id := c.Param("id")
 
-		// Check json
-		if err := c.BindJSON(&service); err != nil {
-			utils.Error(c, utils.BadRequest, "Invalid JSON Format")
-			return
-		}
+		service.Pickup_Location = c.PostForm("pickup_location")
+		service.Pickup_Time = c.PostForm("pickup_time")
 
 		// Validate data
 		msg, isVal := validatePickUpServiceUpdateDetails(service)
@@ -205,7 +202,7 @@ func UpdatePickUpServiceDetails() gin.HandlerFunc {
 		}
 
 		if !(count > 0) {
-			utils.Error(c, utils.BadRequest, "Service does not exist with id.")
+			utils.Error(c, utils.NotFound, "Service does not exist with id.")
 			return
 		}
 

@@ -250,7 +250,7 @@ func GuestLogin() gin.HandlerFunc {
 
 		// Check Email
 		if err := database.GuestCollection.FindOne(ctx, bson.M{"email": guest.Email}).Decode(&foundGuest); err != nil {
-			utils.Error(c, utils.InternalServerError, "Can't find guest with Email id.")
+			utils.Error(c, utils.NotFound, "Can't find guest with Email id.")
 			return
 		}
 
@@ -372,7 +372,7 @@ func UpdateGuestDetails() gin.HandlerFunc {
 
 		// check guest exist or not
 		if err := database.GuestCollection.FindOne(ctx, bson.M{"guest_id": id}).Decode(&foundGuest); err != nil {
-			utils.Error(c, utils.BadRequest, "Can't find guest with id")
+			utils.Error(c, utils.NotFound, "Can't find guest with id")
 			return
 		}
 
@@ -421,7 +421,7 @@ func DeleteGuest() gin.HandlerFunc {
 		id := c.Param("id")
 
 		if err := database.GuestCollection.FindOne(ctx, bson.M{"guest_id": id}).Decode(&guest); err != nil {
-			utils.Error(c, utils.BadRequest, "Can't find guest with id")
+			utils.Error(c, utils.NotFound, "Can't find guest with id")
 			return
 		}
 
@@ -467,7 +467,7 @@ func ResetGuestPassword() gin.HandlerFunc {
 		}
 
 		if !(count > 0) {
-			utils.Error(c, utils.InternalServerError, "Can't find guest with Email id.")
+			utils.Error(c, utils.NotFound, "Can't find guest with Email id.")
 			return
 		}
 
@@ -542,7 +542,7 @@ func UpdateGuestProfilePicture() gin.HandlerFunc {
 
 		// get url details for image url
 		if err := database.GuestCollection.FindOne(ctx, bson.M{"guest_id": id}).Decode(&guest); err != nil {
-			utils.Error(c, utils.BadRequest, "Can't find guest with id")
+			utils.Error(c, utils.NotFound, "Can't find guest with id")
 			return
 		}
 		log.Println(guest.Image)

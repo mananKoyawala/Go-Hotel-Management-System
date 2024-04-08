@@ -127,7 +127,7 @@ func GetManager() gin.HandlerFunc {
 		id := c.Param("id")
 
 		if err := database.ManagerCollection.FindOne(ctx, bson.M{"manager_id": id}).Decode(&manager); err != nil {
-			utils.Error(c, utils.InternalServerError, "Error while fetching data")
+			utils.Error(c, utils.NotFound, "Can't find manager with id")
 			return
 		}
 
@@ -148,7 +148,7 @@ func ManagerLoign() gin.HandlerFunc {
 
 		// Check Email
 		if err := database.ManagerCollection.FindOne(ctx, bson.M{"email": manager.Email}).Decode(&foundManager); err != nil {
-			utils.Error(c, utils.InternalServerError, "Can't find manager with Email id.")
+			utils.Error(c, utils.NotFound, "Can't find manager with Email id.")
 			return
 		}
 
@@ -229,7 +229,7 @@ func CreateManager() gin.HandlerFunc {
 		}
 
 		if count1 > 0 || count2 > 0 {
-			utils.Error(c, utils.BadRequest, "User email or phone already exist.")
+			utils.Error(c, utils.Conflict, "User email or phone already exist.")
 			return
 		}
 
@@ -414,7 +414,7 @@ func DeleteManager() gin.HandlerFunc {
 		id := c.Param("id")
 
 		if err := database.ManagerCollection.FindOne(ctx, bson.M{"manager_id": id}).Decode(&manager); err != nil {
-			utils.Error(c, utils.BadRequest, "Can't find manager with id")
+			utils.Error(c, utils.NotFound, "Can't find manager with id")
 			return
 		}
 
@@ -463,7 +463,7 @@ func ResetManagerPassword() gin.HandlerFunc {
 		}
 
 		if !(count > 0) {
-			utils.Error(c, utils.BadRequest, "Can't find manager with id.")
+			utils.Error(c, utils.NotFound, "Can't find manager with id.")
 			return
 		}
 
@@ -528,7 +528,7 @@ func UpdateManagerProfilePicture() gin.HandlerFunc {
 
 		// get url details for image url
 		if err := database.ManagerCollection.FindOne(ctx, bson.M{"manager_id": id}).Decode(&manager); err != nil {
-			utils.Error(c, utils.BadRequest, "Can't find manager with id")
+			utils.Error(c, utils.NotFound, "Can't find manager with id")
 			return
 		}
 		log.Println(manager.Image)

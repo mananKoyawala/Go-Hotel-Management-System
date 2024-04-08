@@ -259,7 +259,7 @@ func UpdateStaffDetails() gin.HandlerFunc {
 		}
 
 		if !(count > 0) {
-			utils.Error(c, utils.BadRequest, "Staff does not exist with id.")
+			utils.Error(c, utils.NotFound, "Staff does not exist with id.")
 			return
 		}
 
@@ -363,7 +363,7 @@ func DeleteStaff() gin.HandlerFunc {
 		id := c.Param("id")
 
 		if err := database.StaffCollection.FindOne(ctx, bson.M{"staff_id": id}).Decode(&staff); err != nil {
-			utils.Error(c, utils.BadRequest, "Can't find staff with id")
+			utils.Error(c, utils.NotFound, "Can't find staff with id")
 			return
 		}
 
@@ -408,7 +408,7 @@ func UpdateStaffProfilePicture() gin.HandlerFunc {
 
 		// get url details for image url
 		if err := database.StaffCollection.FindOne(ctx, bson.M{"staff_id": id}).Decode(&staff); err != nil {
-			utils.Error(c, utils.BadRequest, "Can't find staff with id")
+			utils.Error(c, utils.NotFound, "Can't find staff with id")
 			return
 		}
 		log.Println(staff.Image)
