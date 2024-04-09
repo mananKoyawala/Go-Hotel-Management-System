@@ -20,5 +20,7 @@ func BranchRoutes(r *gin.Engine) {
 		branch.PATCH("/add-image/:id", controllers.BranchAddImage())
 		branch.DELETE("/delete-image/:id", controllers.BranchRemoveImage())
 		branch.DELETE("/delete/:id", controllers.DeleteBranch())
+		branch.POST("/search", controllers.SearchBranchData())
+		// branch data can be search by branch_name,Address, City, State, Country, status
 	}
 }
