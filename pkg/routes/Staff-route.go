@@ -16,5 +16,7 @@ func StaffRoutes(r *gin.Engine) {
 		staff.PATCH("/update-status/:id", controllers.UpdateStaffStatus())
 		staff.PATCH("/update-profile-pic/:id", controllers.UpdateStaffProfilePicture())
 		staff.DELETE("/delete/:id", controllers.DeleteStaff())
+		staff.POST("/search", controllers.SearchStaffData()) // search by first_name , last_name and gender
+
 	}
 }

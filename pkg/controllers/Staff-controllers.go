@@ -498,3 +498,113 @@ func validateStaffDetails(staff models.Staff) (string, bool) {
 
 	return "", true
 }
+
+func SearchStaffData() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+
+		search_string := c.PostForm("search")
+
+		if search_string == "" {
+			utils.Error(c, utils.BadRequest, "Please provide a search string.")
+			return
+		}
+
+		recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
+		if err != nil || recordPerPage < 10 {
+			recordPerPage = 10
+		}
+
+		page, err := strconv.Atoi(c.Query("page"))
+		if err != nil || page < 1 {
+			page = 1
+		}
+
+		startIndex := (page - 1) * recordPerPage
+		currentIndex := page * recordPerPage
+		// Here the aggregation pipeline started
+
+		matchStage := bson.D{{Key: "$match", Value: bson.D{
+			{Key: "$or", Value: bson.A{
+				bson.D{{Key: "first_name", Value: bson.D{{Key: "$regex", Value: search_string}, {Key: "$options", Value: "i"}}}},
+				bson.D{{Key: "last_name", Value: bson.D{{Key: "$regex", Value: search_string}, {Key: "$options", Value: "i"}}}},
+				bson.D{{Key: "gender", Value: bson.D{{Key: "$regex", Value: search_string}, {Key: "$options", Value: "i"}}}},
+			}},
+		}}}
+
+		groupStage := bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "null"},
+			{Key: "total_count", Value: bson.D{{Key: "$sum", Value: 1}}},
+			{Key: "data", Value: bson.D{{Key: "$push", Value: "$$ROOT"}}},
+		}}}
+
+		projectStage1 := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "_id", Value: 0},
+			{Key: "total_count", Value: 1},
+			{Key: "staffs",
+				Value: bson.D{{Key: "$slice", Value: bson.A{"$data", startIndex, recordPerPage}}}},
+		}}}
+
+		projectStage2 := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "total_count", Value: 1},
+			{Key: "staff", Value: bson.D{
+				{Key: "$map", Value: bson.D{
+					{Key: "input", Value: "$staffs"},
+					{Key: "as", Value: "data"},
+					{Key: "in", Value: bson.D{
+						{Key: "staff_id", Value: "$$data.staff_id"},
+						{Key: "branch_id", Value: "$$data.branch_id"},
+						{Key: "first_name", Value: "$$data.first_name"},
+						{Key: "last_name", Value: "$$data.last_name"},
+						{Key: "phone", Value: "$$data.phone"},
+						{Key: "email", Value: "$$data.email"},
+						{Key: "gender", Value: "$$data.gender"},
+						{Key: "aadhar_number", Value: "$$data.aadhar_number"},
+						{Key: "age", Value: "$$data.age"},
+						{Key: "job_type", Value: "$$data.job_type"},
+						{Key: "salary", Value: "$$data.salary"},
+						{Key: "status", Value: "$$data.status"},
+						{Key: "image", Value: "$$data.image"},
+					}},
+				}},
+			}},
+			{Key: "hashMoreData", Value: bson.D{
+				{Key: "$cond", Value: bson.D{
+					{Key: "if", Value: bson.D{
+						{Key: "$eq", Value: bson.A{"$total_count", currentIndex}},
+					}},
+					{Key: "then", Value: false},
+					{Key: "else", Value: bson.D{
+						{Key: "$cond", Value: bson.D{
+							{Key: "if", Value: bson.D{
+								{Key: "$gt", Value: bson.A{"$total_count", currentIndex}},
+							}},
+							{Key: "then", Value: true},
+							{Key: "else", Value: false},
+						}},
+					}},
+				}},
+			}},
+		}}}
+
+		result, err := database.ManagerCollection.Aggregate(ctx, mongo.Pipeline{
+			matchStage, groupStage, projectStage1, projectStage2,
+		})
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while fetching manager  "+err.Error())
+			return
+		}
+
+		var allBranches []bson.M
+		if err := result.All(ctx, &allBranches); err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while getting the managers "+err.Error())
+			return
+		}
+		if len(allBranches) == 0 {
+			utils.Response(c, []interface{}{})
+			return
+		}
+		utils.Response(c, allBranches[0])
+	}
+}
