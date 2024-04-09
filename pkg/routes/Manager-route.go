@@ -19,6 +19,8 @@ func ManagerRoutes(r *gin.Engine) {
 		manager.GET("/get/:id", controllers.GetManager())
 		manager.PATCH("/update-password", controllers.ResetManagerPassword())
 		manager.PATCH("/update-profile-pic/:id", controllers.UpdateManagerProfilePicture())
+		manager.POST("/search", controllers.SearchManagerData()) // search by first_name , last_name and gender
+
 	}
 }
 
