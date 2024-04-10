@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"log"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -212,14 +213,15 @@ func CreateBranch() gin.HandlerFunc {
 		branch.Updated_at, _ = helpers.GetTime()
 
 		// upload files here
-		for _, fileHeader := range c.Request.MultipartForm.File["file"] {
+		for i, fileHeader := range c.Request.MultipartForm.File["file"] {
 			name := strings.ReplaceAll(fileHeader.Filename, " ", "")
 			file, _ := fileHeader.Open()
 			filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
 			url, err := imageupload.UploadService(file, branchFolder, filename)
 			if err != nil {
-				utils.Error(c, utils.InternalServerError, "Can't uplaod the image.")
-				return
+				log.Panicln(i)
+				log.Println(err.Error())
+				url = "https://i.ibb.co/y4BG3Kv/placeholder.jpg"
 			}
 			branch.Images = append(branch.Images, url)
 		}

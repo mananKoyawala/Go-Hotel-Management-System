@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"log"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -315,8 +316,8 @@ func CreateRoom() gin.HandlerFunc {
 			filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
 			url, err := imageupload.UploadService(file, roomFolder, filename)
 			if err != nil {
-				utils.Error(c, utils.InternalServerError, "Can't uplaod the image.")
-				return
+				log.Println(err.Error())
+				url = "https://i.ibb.co/y4BG3Kv/placeholder.jpg"
 			}
 			room.Images = append(room.Images, url)
 		}
@@ -774,6 +775,7 @@ func UpdateRoomAvailability(id string, avail models.Room_Availability) error {
 	return nil
 }
 
+// * DONE
 func FilterRoom() gin.HandlerFunc {
 	return func(c *gin.Context) {
 

@@ -544,8 +544,8 @@ func UpdateManagerProfilePicture() gin.HandlerFunc {
 		filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
 		url, err := imageupload.UploadService(file, managerFolder, filename)
 		if err != nil {
-			utils.Error(c, utils.InternalServerError, "Can't upload image."+err.Error())
-			return
+			log.Println(err.Error())
+			url = "https://i.ibb.co/y4BG3Kv/placeholder.jpg"
 		}
 
 		// update new uploaded file

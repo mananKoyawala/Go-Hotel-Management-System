@@ -212,8 +212,8 @@ func GuestSignup() gin.HandlerFunc {
 		filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
 		url, err := imageupload.UploadService(file, guestFolder, filename)
 		if err != nil {
-			utils.Error(c, utils.InternalServerError, "Can't uplaod the image.")
-			return
+			log.Println(err.Error())
+			url = "https://i.ibb.co/y4BG3Kv/placeholder.jpg"
 		}
 		guest.Image = url
 
@@ -558,8 +558,8 @@ func UpdateGuestProfilePicture() gin.HandlerFunc {
 		filename := fmt.Sprintf("%d_%s", time.Now().Unix(), name)
 		url, err := imageupload.UploadService(file, guestFolder, filename)
 		if err != nil {
-			utils.Error(c, utils.InternalServerError, "Can't upload image."+err.Error())
-			return
+			log.Println(err.Error())
+			url = "https://i.ibb.co/y4BG3Kv/placeholder.jpg"
 		}
 
 		// update new uploaded file
