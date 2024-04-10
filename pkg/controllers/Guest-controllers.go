@@ -184,6 +184,28 @@ func GuestSignup() gin.HandlerFunc {
 			return
 		}
 
+		// * Start MongoDB transaction
+		client := database.DBInstance()
+		session, err := client.StartSession()
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Failed to start MongoDB session")
+			return
+		}
+		defer session.EndSession(ctx)
+
+		// Start transaction
+		err = session.StartTransaction()
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Failed to start MongoDB transaction")
+			return
+		}
+
+		// Rollback function
+		rollback := func(message string) {
+			session.AbortTransaction(ctx)
+			utils.Error(c, utils.InternalServerError, "Rolling back transaction "+message)
+		}
+
 		// hash password
 		password, err := helpers.HashPassword(guest.Password)
 		if err != nil {
@@ -220,12 +242,12 @@ func GuestSignup() gin.HandlerFunc {
 		// Insert the details
 		result, err := database.GuestCollection.InsertOne(ctx, guest)
 		if err != nil {
-			utils.Error(c, utils.InternalServerError, "Can't create guest")
+			rollback("Can't create guest")
 			return
 		}
 
 		if err := emailverification.GenerateEmailVerificationLink(guest.Guest_id, guest.Email); err != nil {
-			utils.Error(c, utils.InternalServerError, err.Error())
+			rollback(err.Error())
 			return
 		}
 
