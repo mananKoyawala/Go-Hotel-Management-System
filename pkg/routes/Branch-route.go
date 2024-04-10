@@ -22,5 +22,6 @@ func BranchRoutes(r *gin.Engine) {
 		branch.DELETE("/delete/:id", controllers.DeleteBranch())
 		branch.POST("/search", controllers.SearchBranchData())
 		// branch data can be search by branch_name,Address, City, State, Country, status
+		branch.POST("/filter", controllers.FilterBranch()) // filter by city, state, country, status
 	}
 }

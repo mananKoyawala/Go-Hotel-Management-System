@@ -13,5 +13,7 @@ func FeedbackRoutes(r *gin.Engine) {
 		feedback.POST("/create", controllers.CreateFeedback())                                   // access to manager, guest
 		feedback.PATCH("/update-resolution-details/:id", controllers.UpdateFeedbackResolution()) // Only manager can reply the feedback
 		feedback.DELETE("/delete/:id", controllers.DeleteFeedback())                             // Only guest can delete this feedback
+		feedback.POST("/filter", controllers.FilterFeedback())                                   // filter by status, feedback_type, rating
+
 	}
 }

@@ -349,3 +349,121 @@ func validateRating(ratingStr string) bool {
 	validRatingRegex := regexp.MustCompile(`^[0-5](\.\d)?$`)
 	return validRatingRegex.MatchString(ratingStr)
 }
+
+// * DONE
+func FilterFeedback() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+
+		status := models.Status(c.PostForm("status"))
+		feedbackType := c.PostForm("feedback_type")
+		rating := c.PostForm("rating")
+
+		recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
+		if err != nil || recordPerPage < 10 {
+			recordPerPage = 10
+		}
+
+		page, err := strconv.Atoi(c.Query("page"))
+		if err != nil || page < 1 {
+			page = 1
+		}
+
+		startIndex := (page - 1) * recordPerPage
+		currentIndex := page * recordPerPage
+		// Here the aggregation pipeline started
+
+		// cleaning data
+
+		if feedbackType == "" || (feedbackType != "complaint" && feedbackType != "rating") {
+			feedbackType = "rating"
+		}
+
+		if status == "" || (status != "resolved" && status != "pending") {
+			status = "resolved"
+		}
+
+		matchStage := bson.D{{Key: "$match", Value: bson.D{
+
+			{Key: "feedback_type", Value: feedbackType},
+			{Key: "status", Value: status},
+			{Key: "$or", Value: bson.A{
+				bson.D{{Key: "rating", Value: bson.D{{Key: "$regex", Value: rating}, {Key: "$options", Value: "i"}}}},
+			}},
+		}}}
+
+		groupStage := bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "null"},
+			{Key: "total_count", Value: bson.D{{Key: "$sum", Value: 1}}},
+			{Key: "data", Value: bson.D{{Key: "$push", Value: "$$ROOT"}}},
+		}}}
+
+		projectStage1 := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "_id", Value: 0},
+			{Key: "total_count", Value: 1},
+			{Key: "feedbacks",
+				Value: bson.D{{Key: "$slice", Value: bson.A{"$data", startIndex, recordPerPage}}}},
+		}}}
+
+		projectStage2 := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "total_count", Value: 1},
+			{Key: "feedback", Value: bson.D{
+				{Key: "$map", Value: bson.D{
+					{Key: "input", Value: "$feedbacks"},
+					{Key: "as", Value: "data"},
+					{Key: "in", Value: bson.D{
+						{Key: "guest_feedback_id", Value: "$$data.guest_feedback_id"},
+						{Key: "branch_id", Value: "$$data.branch_id"},
+						{Key: "room_id", Value: "$$data.room_id"},
+						{Key: "guest_id", Value: "$$data.guest_id"},
+						{Key: "description", Value: "$$data.description"},
+						{Key: "feedback_type", Value: "$$data.feedback_type"},
+						{Key: "resolution_details", Value: "$$data.resolution_details"},
+						{Key: "rating", Value: "$$data.rating"},
+						{Key: "status", Value: "$$data.status"},
+						{Key: "image", Value: "$$data.image"},
+					}},
+				}},
+			}},
+			{Key: "hashMoreData", Value: bson.D{
+				{Key: "$cond", Value: bson.D{
+					{Key: "if", Value: bson.D{
+						{Key: "$eq", Value: bson.A{"$total_count", currentIndex}},
+					}},
+					{Key: "then", Value: false},
+					{Key: "else", Value: bson.D{
+						{Key: "$cond", Value: bson.D{
+							{Key: "if", Value: bson.D{
+								{Key: "$gt", Value: bson.A{"$total_count", currentIndex}},
+							}},
+							{Key: "then", Value: true},
+							{Key: "else", Value: false},
+						}},
+					}},
+				}},
+			}},
+		}}}
+
+		result, err := database.GuestFeedbackCollection.Aggregate(ctx, mongo.Pipeline{
+			matchStage, groupStage, projectStage1, projectStage2,
+		})
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while fetching feedbacks "+err.Error())
+			return
+		}
+
+		var allFeedbacks []bson.M
+		if err := result.All(ctx, &allFeedbacks); err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while getting the feedbacks "+err.Error())
+			return
+		}
+
+		if len(allFeedbacks) == 0 {
+			utils.Response(c, []interface{}{})
+			return
+		}
+
+		utils.Response(c, allFeedbacks[0])
+	}
+}

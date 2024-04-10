@@ -773,3 +773,132 @@ func UpdateRoomAvailability(id string, avail models.Room_Availability) error {
 
 	return nil
 }
+
+func FilterRoom() gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+
+		room_type := c.PostForm("room_type")
+		room_availability := c.PostForm("room_availability")
+		cleaning_status := c.PostForm("cleaning_status")
+		priceOperator := c.PostForm("priceOperator")
+		price, _ := strconv.ParseFloat(c.PostForm("price"), 64)
+
+		if price <= 0.0 {
+			price = 0
+		}
+
+		if priceOperator == "" || (priceOperator != "$gt" && priceOperator != "$eq" && priceOperator != "$lt") {
+			priceOperator = "$gt"
+		}
+
+		if room_type == "" || (room_type != "single_bed" && room_type != "double_bed" && room_type != "suite") {
+			room_type = "single_bed"
+		}
+
+		if room_availability == "" || (room_availability != "available" && room_availability != "occupied") {
+			room_availability = "available"
+		}
+
+		if cleaning_status == "" || (cleaning_status != "cleaned" && cleaning_status != "dirty" && cleaning_status != "inprogress") {
+			cleaning_status = "cleaned"
+		}
+
+		recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
+		if err != nil || recordPerPage < 10 {
+			recordPerPage = 10
+		}
+
+		page, err := strconv.Atoi(c.Query("page"))
+		if err != nil || page < 1 {
+			page = 1
+		}
+
+		startIndex := (page - 1) * recordPerPage
+		currentIndex := page * recordPerPage
+		// Here the aggregation pipeline started
+
+		matchStage := bson.D{{Key: "$match", Value: bson.D{
+			{Key: "room_type", Value: room_type},
+			{Key: "room_availability", Value: room_availability},
+			{Key: "cleaning_status", Value: cleaning_status},
+			{Key: "price", Value: bson.D{
+				{Key: priceOperator, Value: price},
+			}},
+		}}}
+
+		groupStage := bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "null"},
+			{Key: "total_count", Value: bson.D{{Key: "$sum", Value: 1}}},
+			{Key: "data", Value: bson.D{{Key: "$push", Value: "$$ROOT"}}},
+		}}}
+
+		projectStage1 := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "_id", Value: 0},
+			{Key: "total_count", Value: 1},
+			{Key: "rooms",
+				Value: bson.D{{Key: "$slice", Value: bson.A{"$data", startIndex, recordPerPage}}}},
+		}}}
+
+		projectStage2 := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "total_count", Value: 1},
+			{Key: "room", Value: bson.D{
+				{Key: "$map", Value: bson.D{
+					{Key: "input", Value: "$rooms"},
+					{Key: "as", Value: "data"},
+					{Key: "in", Value: bson.D{
+						{Key: "room_id", Value: "$$data.room_id"},
+						{Key: "branch_id", Value: "$$data.branch_id"},
+						{Key: "room_number", Value: "$$data.room_number"},
+						{Key: "room_type", Value: "$$data.room_type"},
+						{Key: "room_availability", Value: "$$data.room_availability"},
+						{Key: "cleaning_status", Value: "$$data.cleaning_status"},
+						{Key: "price", Value: "$$data.price"},
+						{Key: "capacity", Value: "$$data.capacity"},
+						{Key: "images", Value: "$$data.images"},
+					}},
+				}},
+			}},
+			{Key: "hashMoreData", Value: bson.D{
+				{Key: "$cond", Value: bson.D{
+					{Key: "if", Value: bson.D{
+						{Key: "$eq", Value: bson.A{"$total_count", currentIndex}},
+					}},
+					{Key: "then", Value: false},
+					{Key: "else", Value: bson.D{
+						{Key: "$cond", Value: bson.D{
+							{Key: "if", Value: bson.D{
+								{Key: "$gt", Value: bson.A{"$total_count", currentIndex}},
+							}},
+							{Key: "then", Value: true},
+							{Key: "else", Value: false},
+						}},
+					}},
+				}},
+			}},
+		}}}
+
+		result, err := database.RoomCollection.Aggregate(ctx, mongo.Pipeline{
+			matchStage, groupStage, projectStage1, projectStage2,
+		})
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while fetching rooms "+err.Error())
+			return
+		}
+
+		var allRooms []bson.M
+		if err := result.All(ctx, &allRooms); err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while getting the room "+err.Error())
+			return
+		}
+
+		if len(allRooms) == 0 {
+			utils.Response(c, []interface{}{})
+			return
+		}
+
+		utils.Response(c, allRooms[0])
+	}
+}

@@ -20,6 +20,7 @@ func ManagerRoutes(r *gin.Engine) {
 		manager.PATCH("/update-password", controllers.ResetManagerPassword())
 		manager.PATCH("/update-profile-pic/:id", controllers.UpdateManagerProfilePicture())
 		manager.POST("/search", controllers.SearchManagerData()) // search by first_name , last_name and gender
+		manager.POST("/filter", controllers.FilterManager())     // filter by age, salary and status
 
 	}
 }

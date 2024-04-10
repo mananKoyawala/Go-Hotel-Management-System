@@ -16,8 +16,8 @@ type Driver struct {
 	Car_Company      string             `bson:"car_company,omitempty" json:"car_company,omitempty"`
 	Car_Model        string             `bson:"car_model,omitempty" json:"car_model,omitempty"`
 	Car_Number_Plate string             `bson:"car_number_plate,omitempty" json:"car_number_plate,omitempty"`
-	Status           Status             `bson:"status,omitempty" json:"status,omitempty"`       // Active or Inactive
-	Availablity      Availablity        `bson:"available,omitempty" json:"available,omitempty"` // available or not available (on the drive)
+	Status           Status             `bson:"status,omitempty" json:"status,omitempty"`             // Active or Inactive
+	Availablity      Availablity        `bson:"availability,omitempty" json:"availability,omitempty"` // available or not available (on the drive)
 	Salary           float64            `bson:"salary,omitempty" json:"salary,omitempty"`
 	Email            string             `bson:"email,omitempty" json:"email,omitempty"`
 	Password         string             `bson:"Password,omitempty" json:"Password,omitempty"`

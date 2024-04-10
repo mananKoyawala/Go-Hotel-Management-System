@@ -127,6 +127,104 @@ func GetAllStaff() gin.HandlerFunc {
 }
 
 // * DONE
+func GetStaffs() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+
+		recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
+		if err != nil || recordPerPage < 10 {
+			recordPerPage = 10
+		}
+
+		page, err := strconv.Atoi(c.Query("page"))
+		if err != nil || page < 1 {
+			page = 1
+		}
+
+		startIndex := (page - 1) * recordPerPage
+		currentIndex := page * recordPerPage
+		// Here the aggregation pipeline started
+
+		groupStage := bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "null"},
+			{Key: "total_count", Value: bson.D{{Key: "$sum", Value: 1}}},
+			{Key: "data", Value: bson.D{{Key: "$push", Value: "$$ROOT"}}},
+		}}}
+
+		projectStage1 := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "_id", Value: 0},
+			{Key: "total_count", Value: 1},
+			{Key: "staffs",
+				Value: bson.D{{Key: "$slice", Value: bson.A{"$data", startIndex, recordPerPage}}}},
+		}}}
+
+		projectStage2 := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "total_count", Value: 1},
+			{Key: "staff", Value: bson.D{
+				{Key: "$map", Value: bson.D{
+					{Key: "input", Value: "$staffs"},
+					{Key: "as", Value: "data"},
+					{Key: "in", Value: bson.D{
+						{Key: "staff_id", Value: "$$data.staff_id"},
+						{Key: "branch_id", Value: "$$data.branch_id"},
+						{Key: "first_name", Value: "$$data.first_name"},
+						{Key: "last_name", Value: "$$data.last_name"},
+						{Key: "phone", Value: "$$data.phone"},
+						{Key: "email", Value: "$$data.email"},
+						{Key: "gender", Value: "$$data.gender"},
+						{Key: "aadhar_number", Value: "$$data.aadhar_number"},
+						{Key: "age", Value: "$$data.age"},
+						{Key: "job_type", Value: "$$data.job_type"},
+						{Key: "salary", Value: "$$data.salary"},
+						{Key: "status", Value: "$$data.status"},
+						{Key: "image", Value: "$$data.image"},
+					}},
+				}},
+			}},
+			{Key: "hashMoreData", Value: bson.D{
+				{Key: "$cond", Value: bson.D{
+					{Key: "if", Value: bson.D{
+						{Key: "$eq", Value: bson.A{"$total_count", currentIndex}},
+					}},
+					{Key: "then", Value: false},
+					{Key: "else", Value: bson.D{
+						{Key: "$cond", Value: bson.D{
+							{Key: "if", Value: bson.D{
+								{Key: "$gt", Value: bson.A{"$total_count", currentIndex}},
+							}},
+							{Key: "then", Value: true},
+							{Key: "else", Value: false},
+						}},
+					}},
+				}},
+			}},
+		}}}
+
+		result, err := database.StaffCollection.Aggregate(ctx, mongo.Pipeline{
+			groupStage, projectStage1, projectStage2,
+		})
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while fetching staffs "+err.Error())
+			return
+		}
+
+		var allstaffs []bson.M
+		if err := result.All(ctx, &allstaffs); err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while getting the staffs "+err.Error())
+			return
+		}
+
+		if len(allstaffs) == 0 {
+			utils.Response(c, []interface{}{})
+			return
+		}
+
+		utils.Response(c, allstaffs[0])
+	}
+}
+
+// * DONE
 func GetStaff() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := helpers.GetContext()
@@ -607,5 +705,144 @@ func SearchStaffData() gin.HandlerFunc {
 			return
 		}
 		utils.Response(c, allStaffs[0])
+	}
+}
+
+// * DONE
+func FilterStaff() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+
+		age, _ := strconv.Atoi(c.PostForm("age"))
+		salary, _ := strconv.ParseFloat(c.PostForm("salary"), 64)
+		status := models.Status(c.PostForm("status"))
+		ageOperator := c.PostForm("ageOperator")
+		salaryOperator := c.PostForm("salaryOperator")
+		job_type := c.PostForm("job_type")
+
+		// Cleaning the input
+		if age <= 0 {
+			age = 0
+		}
+
+		if salary <= 0.0 {
+			salary = 0
+		}
+
+		if ageOperator == "" || (ageOperator != "$gt" && ageOperator != "$eq" && ageOperator != "$lt") {
+			ageOperator = "$gt"
+		}
+
+		if salaryOperator == "" || (salaryOperator != "$gt" && salaryOperator != "$eq" && salaryOperator != "$lt") {
+			salaryOperator = "$gt"
+		}
+
+		if status == "" || (status != "active" && status != "inactive") {
+			status = "active"
+		}
+
+		recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
+		if err != nil || recordPerPage < 10 {
+			recordPerPage = 10
+		}
+
+		page, err := strconv.Atoi(c.Query("page"))
+		if err != nil || page < 1 {
+			page = 1
+		}
+
+		startIndex := (page - 1) * recordPerPage
+		currentIndex := page * recordPerPage
+		// Here the aggregation pipeline started
+
+		matchStage := bson.D{{Key: "$match", Value: bson.D{
+			{Key: "$or", Value: bson.A{
+				bson.D{{Key: "job_type", Value: bson.D{{Key: "$regex", Value: job_type}, {Key: "$options", Value: "i"}}}},
+			}},
+			{Key: "status", Value: status},
+			{Key: "salary", Value: bson.D{
+				{Key: salaryOperator, Value: salary},
+			}},
+			{Key: "age", Value: bson.D{
+				{Key: ageOperator, Value: age},
+			}},
+		}}}
+
+		groupStage := bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "null"},
+			{Key: "total_count", Value: bson.D{{Key: "$sum", Value: 1}}},
+			{Key: "data", Value: bson.D{{Key: "$push", Value: "$$ROOT"}}},
+		}}}
+
+		projectStage1 := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "_id", Value: 0},
+			{Key: "total_count", Value: 1},
+			{Key: "staffs",
+				Value: bson.D{{Key: "$slice", Value: bson.A{"$data", startIndex, recordPerPage}}}},
+		}}}
+
+		projectStage2 := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "total_count", Value: 1},
+			{Key: "staff", Value: bson.D{
+				{Key: "$map", Value: bson.D{
+					{Key: "input", Value: "$staffs"},
+					{Key: "as", Value: "data"},
+					{Key: "in", Value: bson.D{
+						{Key: "staff_id", Value: "$$data.staff_id"},
+						{Key: "branch_id", Value: "$$data.branch_id"},
+						{Key: "first_name", Value: "$$data.first_name"},
+						{Key: "last_name", Value: "$$data.last_name"},
+						{Key: "phone", Value: "$$data.phone"},
+						{Key: "email", Value: "$$data.email"},
+						{Key: "gender", Value: "$$data.gender"},
+						{Key: "aadhar_number", Value: "$$data.aadhar_number"},
+						{Key: "age", Value: "$$data.age"},
+						{Key: "job_type", Value: "$$data.job_type"},
+						{Key: "salary", Value: "$$data.salary"},
+						{Key: "status", Value: "$$data.status"},
+						{Key: "image", Value: "$$data.image"},
+					}},
+				}},
+			}},
+			{Key: "hashMoreData", Value: bson.D{
+				{Key: "$cond", Value: bson.D{
+					{Key: "if", Value: bson.D{
+						{Key: "$eq", Value: bson.A{"$total_count", currentIndex}},
+					}},
+					{Key: "then", Value: false},
+					{Key: "else", Value: bson.D{
+						{Key: "$cond", Value: bson.D{
+							{Key: "if", Value: bson.D{
+								{Key: "$gt", Value: bson.A{"$total_count", currentIndex}},
+							}},
+							{Key: "then", Value: true},
+							{Key: "else", Value: false},
+						}},
+					}},
+				}},
+			}},
+		}}}
+
+		result, err := database.StaffCollection.Aggregate(ctx, mongo.Pipeline{
+			matchStage, groupStage, projectStage1, projectStage2,
+		})
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while fetching staffs "+err.Error())
+			return
+		}
+
+		var allstaffs []bson.M
+		if err := result.All(ctx, &allstaffs); err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while getting the staffs "+err.Error())
+			return
+		}
+
+		if len(allstaffs) == 0 {
+			utils.Response(c, []interface{}{})
+			return
+		}
+
+		utils.Response(c, allstaffs[0])
 	}
 }

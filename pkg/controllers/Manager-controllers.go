@@ -753,3 +753,138 @@ func SearchManagerData() gin.HandlerFunc {
 		utils.Response(c, allManagers[0])
 	}
 }
+
+// * DONE
+func FilterManager() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+		var manager models.Manager
+
+		manager.Age, _ = strconv.Atoi(c.PostForm("age"))
+		manager.Salary, _ = strconv.ParseFloat(c.PostForm("salary"), 64)
+		manager.Status = models.Status(c.PostForm("status"))
+		ageOperator := c.PostForm("ageOperator")
+		salaryOperator := c.PostForm("salaryOperator")
+
+		// Cleaning the input
+		if manager.Age <= 0 {
+			manager.Age = 0
+		}
+		if manager.Salary <= 0.0 {
+			manager.Salary = 0
+		}
+		if ageOperator == "" || (ageOperator != "$gt" && ageOperator != "$eq" && ageOperator != "$lt") {
+			ageOperator = "$gt"
+		}
+
+		if salaryOperator == "" || (salaryOperator != "$gt" && salaryOperator != "$eq" && salaryOperator != "$lt") {
+			salaryOperator = "$gt"
+		}
+
+		if manager.Status == "" || (manager.Status != "active" && manager.Status != "inactive") {
+			manager.Status = "active"
+		}
+
+		// log.Println(manager.Age)
+		// log.Println(manager.Salary)
+		// log.Println(manager.Status)
+		// log.Println(ageOperator)
+		// log.Println(salaryOperator)
+
+		recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
+		if err != nil || recordPerPage < 10 {
+			recordPerPage = 10
+		}
+
+		page, err := strconv.Atoi(c.Query("page"))
+		if err != nil || page < 1 {
+			page = 1
+		}
+
+		startIndex := (page - 1) * recordPerPage
+		currentIndex := page * recordPerPage
+		// Here the aggregation pipeline started
+
+		matchStage := bson.D{{Key: "$match", Value: bson.D{
+			{Key: "status", Value: manager.Status},
+			{Key: "salary", Value: bson.D{
+				{Key: salaryOperator, Value: manager.Salary},
+			}},
+			{Key: "age", Value: bson.D{
+				{Key: ageOperator, Value: manager.Age},
+			}},
+		}}}
+
+		groupStage := bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "null"},
+			{Key: "total_count", Value: bson.D{{Key: "$sum", Value: 1}}},
+			{Key: "data", Value: bson.D{{Key: "$push", Value: "$$ROOT"}}},
+		}}}
+
+		projectStage1 := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "_id", Value: 0},
+			{Key: "total_count", Value: 1},
+			{Key: "managers",
+				Value: bson.D{{Key: "$slice", Value: bson.A{"$data", startIndex, recordPerPage}}}},
+		}}}
+
+		projectStage2 := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "total_count", Value: 1},
+			{Key: "manager", Value: bson.D{
+				{Key: "$map", Value: bson.D{
+					{Key: "input", Value: "$managers"},
+					{Key: "as", Value: "data"},
+					{Key: "in", Value: bson.D{
+						{Key: "manager_id", Value: "$$data.manager_id"},
+						{Key: "first_name", Value: "$$data.first_name"},
+						{Key: "last_name", Value: "$$data.last_name"},
+						{Key: "age", Value: "$$data.age"},
+						{Key: "phone", Value: "$$data.phone"},
+						{Key: "email", Value: "$$data.email"},
+						{Key: "gender", Value: "$$data.gender"},
+						{Key: "salary", Value: "$$data.salary"},
+						{Key: "status", Value: "$$data.status"},
+						{Key: "image", Value: "$$data.image"},
+					}},
+				}},
+			}},
+			{Key: "hashMoreData", Value: bson.D{
+				{Key: "$cond", Value: bson.D{
+					{Key: "if", Value: bson.D{
+						{Key: "$eq", Value: bson.A{"$total_count", currentIndex}},
+					}},
+					{Key: "then", Value: false},
+					{Key: "else", Value: bson.D{
+						{Key: "$cond", Value: bson.D{
+							{Key: "if", Value: bson.D{
+								{Key: "$gt", Value: bson.A{"$total_count", currentIndex}},
+							}},
+							{Key: "then", Value: true},
+							{Key: "else", Value: false},
+						}},
+					}},
+				}},
+			}},
+		}}}
+
+		result, err := database.ManagerCollection.Aggregate(ctx, mongo.Pipeline{
+			matchStage, groupStage, projectStage1, projectStage2,
+		})
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while fetching manager  "+err.Error())
+			return
+		}
+
+		var allManagers []bson.M
+		if err := result.All(ctx, &allManagers); err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while getting the managers "+err.Error())
+			return
+		}
+		if len(allManagers) == 0 {
+			utils.Response(c, []interface{}{})
+			return
+		}
+		utils.Response(c, allManagers[0])
+	}
+}

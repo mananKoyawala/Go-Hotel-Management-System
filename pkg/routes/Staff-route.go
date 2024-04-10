@@ -10,6 +10,7 @@ func StaffRoutes(r *gin.Engine) {
 	{
 		// * Manager
 		staff.GET("/getall/:id", controllers.GetAllStaff()) // by branch id
+		staff.GET("/getall", controllers.GetStaffs())
 		staff.GET("/get/:id", controllers.GetStaff())
 		staff.POST("/create", controllers.CreateStaff())
 		staff.PUT("/update-all/:id", controllers.UpdateStaffDetails())
@@ -17,6 +18,6 @@ func StaffRoutes(r *gin.Engine) {
 		staff.PATCH("/update-profile-pic/:id", controllers.UpdateStaffProfilePicture())
 		staff.DELETE("/delete/:id", controllers.DeleteStaff())
 		staff.POST("/search", controllers.SearchStaffData()) // search by first_name , last_name and gender
-
+		staff.POST("/filter", controllers.FilterStaff())
 	}
 }

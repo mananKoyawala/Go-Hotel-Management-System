@@ -806,3 +806,123 @@ func SearchBranchData() gin.HandlerFunc {
 		utils.Response(c, allBranches[0])
 	}
 }
+
+// * DONE
+func FilterBranch() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+
+		city := c.PostForm("city")
+		state := c.PostForm("state")
+		country := c.PostForm("country")
+		status := models.Status(c.PostForm("status"))
+
+		// clean the data
+		if status == "" || (status != "active" && status != "inactive") {
+			status = "active"
+		}
+
+		// log.Println(city)
+		// log.Println(state)
+		// log.Println(country)
+		// log.Println(status)
+
+		recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
+		if err != nil || recordPerPage < 10 {
+			recordPerPage = 10
+		}
+
+		page, err := strconv.Atoi(c.Query("page"))
+		if err != nil || page < 1 {
+			page = 1
+		}
+
+		startIndex := (page - 1) * recordPerPage
+		currentIndex := page * recordPerPage
+		// Here the aggregation pipeline started
+
+		matchStage := bson.D{{Key: "$match", Value: bson.D{
+			{Key: "$or", Value: bson.A{
+				bson.D{{Key: "city", Value: bson.D{{Key: "$regex", Value: city}, {Key: "$options", Value: "i"}}}},
+				bson.D{{Key: "state", Value: bson.D{{Key: "$regex", Value: state}, {Key: "$options", Value: "i"}}}},
+				bson.D{{Key: "country", Value: bson.D{{Key: "$regex", Value: country}, {Key: "$options", Value: "i"}}}},
+			}},
+			{Key: "status", Value: status},
+		}}}
+
+		groupStage := bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "null"},
+			{Key: "total_count", Value: bson.D{{Key: "$sum", Value: 1}}},
+			{Key: "data", Value: bson.D{{Key: "$push", Value: "$$ROOT"}}},
+		}}}
+
+		projectStage1 := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "_id", Value: 0},
+			{Key: "total_count", Value: 1},
+			{Key: "branches",
+				Value: bson.D{{Key: "$slice", Value: bson.A{"$data", startIndex, recordPerPage}}}},
+		}}}
+
+		projectStage2 := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "total_count", Value: 1},
+			{Key: "branch", Value: bson.D{
+				{Key: "$map", Value: bson.D{
+					{Key: "input", Value: "$branches"},
+					{Key: "as", Value: "data"},
+					{Key: "in", Value: bson.D{
+						{Key: "branch_id", Value: "$$data.branch_id"},
+						{Key: "manager_id", Value: "$$data.manager_id"},
+						{Key: "branch_name", Value: "$$data.branch_name"},
+						{Key: "address", Value: "$$data.address"},
+						{Key: "phone", Value: "$$data.phone"},
+						{Key: "email", Value: "$$data.email"},
+						{Key: "city", Value: "$$data.city"},
+						{Key: "state", Value: "$$data.state"},
+						{Key: "country", Value: "$$data.country"},
+						{Key: "pincode", Value: "$$data.pincode"},
+						{Key: "status", Value: "$$data.status"},
+						{Key: "images", Value: "$$data.images"},
+						{Key: "total_rooms", Value: "$$data.total_rooms"},
+					}},
+				}},
+			}},
+			{Key: "hashMoreData", Value: bson.D{
+				{Key: "$cond", Value: bson.D{
+					{Key: "if", Value: bson.D{
+						{Key: "$eq", Value: bson.A{"$total_count", currentIndex}},
+					}},
+					{Key: "then", Value: false},
+					{Key: "else", Value: bson.D{
+						{Key: "$cond", Value: bson.D{
+							{Key: "if", Value: bson.D{
+								{Key: "$gt", Value: bson.A{"$total_count", currentIndex}},
+							}},
+							{Key: "then", Value: true},
+							{Key: "else", Value: false},
+						}},
+					}},
+				}},
+			}},
+		}}}
+
+		result, err := database.BranchCollection.Aggregate(ctx, mongo.Pipeline{
+			matchStage, groupStage, projectStage1, projectStage2,
+		})
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while fetching branches  "+err.Error())
+			return
+		}
+
+		var allBranches []bson.M
+		if err := result.All(ctx, &allBranches); err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while getting the branches "+err.Error())
+			return
+		}
+		if len(allBranches) == 0 {
+			utils.Response(c, []interface{}{})
+			return
+		}
+		utils.Response(c, allBranches[0])
+	}
+}

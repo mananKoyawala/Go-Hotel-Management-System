@@ -19,5 +19,6 @@ func RoomRoutes(r *gin.Engine) {
 		room.PATCH("/add-image/:id", controllers.RoomAddImage())
 		room.DELETE("/delete-image/:id", controllers.RoomRemoveImage())
 		room.DELETE("/delete/:id", controllers.DeleteRoom())
+		room.POST("/filter", controllers.FilterRoom())
 	}
 }
