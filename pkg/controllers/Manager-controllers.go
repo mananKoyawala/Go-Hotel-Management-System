@@ -646,6 +646,7 @@ func validateUpdateManager(manager models.Manager) (string, bool) {
 	return "", true
 }
 
+// * DONE
 func SearchManagerData() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := helpers.GetContext()
@@ -740,15 +741,15 @@ func SearchManagerData() gin.HandlerFunc {
 			return
 		}
 
-		var allBranches []bson.M
-		if err := result.All(ctx, &allBranches); err != nil {
+		var allManagers []bson.M
+		if err := result.All(ctx, &allManagers); err != nil {
 			utils.Error(c, utils.InternalServerError, "Error while getting the managers "+err.Error())
 			return
 		}
-		if len(allBranches) == 0 {
+		if len(allManagers) == 0 {
 			utils.Response(c, []interface{}{})
 			return
 		}
-		utils.Response(c, allBranches[0])
+		utils.Response(c, allManagers[0])
 	}
 }

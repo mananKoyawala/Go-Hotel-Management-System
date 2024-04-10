@@ -499,6 +499,7 @@ func validateStaffDetails(staff models.Staff) (string, bool) {
 	return "", true
 }
 
+// * DONE
 func SearchStaffData() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := helpers.GetContext()
@@ -596,15 +597,15 @@ func SearchStaffData() gin.HandlerFunc {
 			return
 		}
 
-		var allBranches []bson.M
-		if err := result.All(ctx, &allBranches); err != nil {
+		var allStaffs []bson.M
+		if err := result.All(ctx, &allStaffs); err != nil {
 			utils.Error(c, utils.InternalServerError, "Error while getting the managers "+err.Error())
 			return
 		}
-		if len(allBranches) == 0 {
+		if len(allStaffs) == 0 {
 			utils.Response(c, []interface{}{})
 			return
 		}
-		utils.Response(c, allBranches[0])
+		utils.Response(c, allStaffs[0])
 	}
 }

@@ -693,6 +693,7 @@ func BranchRemoveImage() gin.HandlerFunc {
 	}
 }
 
+// * DONE
 func SearchBranchData() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := helpers.GetContext()

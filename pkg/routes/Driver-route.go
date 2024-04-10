@@ -21,5 +21,7 @@ func DriverRoutes(r *gin.Engine) {
 		driver.PATCH("/update-profile-pic/:id", controllers.UpdateDriverProfilePicture())
 		driver.PATCH("/update-password", controllers.ResetDriverPassword())
 		driver.PATCH("/update-availability/:id", controllers.UpdateDriverAvailability()) // status is changed based on reservation
+		driver.POST("/search", controllers.SearchDriverData())                           // search by first_name , last_name , gender, car_company, car_model and car_number_plate
+
 	}
 }

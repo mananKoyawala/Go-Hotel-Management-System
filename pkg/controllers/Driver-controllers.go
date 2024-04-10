@@ -713,3 +713,119 @@ func validateDriverUpdateDetails(driver models.Driver) (string, bool) {
 
 	return "", true
 }
+
+// * DONE
+func SearchDriverData() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := helpers.GetContext()
+		defer cancel()
+
+		search_string := c.PostForm("search")
+
+		if search_string == "" {
+			utils.Error(c, utils.BadRequest, "Please provide a search string.")
+			return
+		}
+
+		recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
+		if err != nil || recordPerPage < 10 {
+			recordPerPage = 10
+		}
+
+		page, err := strconv.Atoi(c.Query("page"))
+		if err != nil || page < 1 {
+			page = 1
+		}
+
+		startIndex := (page - 1) * recordPerPage
+		currentIndex := page * recordPerPage
+		// Here the aggregation pipeline started
+
+		matchStage := bson.D{{Key: "$match", Value: bson.D{
+			{Key: "$or", Value: bson.A{
+				bson.D{{Key: "first_name", Value: bson.D{{Key: "$regex", Value: search_string}, {Key: "$options", Value: "i"}}}},
+				bson.D{{Key: "last_name", Value: bson.D{{Key: "$regex", Value: search_string}, {Key: "$options", Value: "i"}}}},
+				bson.D{{Key: "gender", Value: bson.D{{Key: "$regex", Value: search_string}, {Key: "$options", Value: "i"}}}},
+				bson.D{{Key: "car_company", Value: bson.D{{Key: "$regex", Value: search_string}, {Key: "$options", Value: "i"}}}},
+				bson.D{{Key: "car_model", Value: bson.D{{Key: "$regex", Value: search_string}, {Key: "$options", Value: "i"}}}},
+				bson.D{{Key: "car_number_plate", Value: bson.D{{Key: "$regex", Value: search_string}, {Key: "$options", Value: "i"}}}},
+			}},
+		}}}
+
+		groupStage := bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "null"},
+			{Key: "total_count", Value: bson.D{{Key: "$sum", Value: 1}}},
+			{Key: "data", Value: bson.D{{Key: "$push", Value: "$$ROOT"}}},
+		}}}
+
+		projectStage1 := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "_id", Value: 0},
+			{Key: "total_count", Value: 1},
+			{Key: "drivers",
+				Value: bson.D{{Key: "$slice", Value: bson.A{"$data", startIndex, recordPerPage}}}},
+		}}}
+
+		projectStage2 := bson.D{{Key: "$project", Value: bson.D{
+			{Key: "total_count", Value: 1},
+			{Key: "driver", Value: bson.D{
+				{Key: "$map", Value: bson.D{
+					{Key: "input", Value: "$drivers"},
+					{Key: "as", Value: "data"},
+					{Key: "in", Value: bson.D{
+						{Key: "driver_id", Value: "$$data.driver_id"},
+						{Key: "first_name", Value: "$$data.first_name"},
+						{Key: "last_name", Value: "$$data.last_name"},
+						{Key: "age", Value: "$$data.age"},
+						{Key: "phone", Value: "$$data.phone"},
+						{Key: "email", Value: "$$data.email"},
+						{Key: "gender", Value: "$$data.gender"},
+						{Key: "car_company", Value: "$$data.car_company"},
+						{Key: "car_model", Value: "$$data.car_model"},
+						{Key: "car_number_plate", Value: "$$data.car_number_plate"},
+						{Key: "availability", Value: "$$data.availability"},
+						{Key: "pickup_location", Value: "$$data.pickup_location"},
+						{Key: "salary", Value: "$$data.salary"},
+						{Key: "status", Value: "$$data.status"},
+						{Key: "image", Value: "$$data.image"},
+					}},
+				}},
+			}},
+			{Key: "hashMoreData", Value: bson.D{
+				{Key: "$cond", Value: bson.D{
+					{Key: "if", Value: bson.D{
+						{Key: "$eq", Value: bson.A{"$total_count", currentIndex}},
+					}},
+					{Key: "then", Value: false},
+					{Key: "else", Value: bson.D{
+						{Key: "$cond", Value: bson.D{
+							{Key: "if", Value: bson.D{
+								{Key: "$gt", Value: bson.A{"$total_count", currentIndex}},
+							}},
+							{Key: "then", Value: true},
+							{Key: "else", Value: false},
+						}},
+					}},
+				}},
+			}},
+		}}}
+
+		result, err := database.DriverCollection.Aggregate(ctx, mongo.Pipeline{
+			matchStage, groupStage, projectStage1, projectStage2,
+		})
+		if err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while fetching driver  "+err.Error())
+			return
+		}
+
+		var allDrivers []bson.M
+		if err := result.All(ctx, &allDrivers); err != nil {
+			utils.Error(c, utils.InternalServerError, "Error while getting the drivers "+err.Error())
+			return
+		}
+		if len(allDrivers) == 0 {
+			utils.Response(c, []interface{}{})
+			return
+		}
+		utils.Response(c, allDrivers[0])
+	}
+}
