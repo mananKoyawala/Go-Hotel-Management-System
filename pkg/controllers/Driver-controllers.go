@@ -246,7 +246,7 @@ func CreateDriver() gin.HandlerFunc {
 		driver.Driver_id = driver.ID.Hex()
 		driver.Status = models.Active
 		driver.Availablity = models.Available
-		driver.Access_Type = models.Driver_Access
+		driver.Access_Type = models.D_Acc
 		driver.Created_at, _ = helpers.GetTime()
 		driver.Updated_at, _ = helpers.GetTime()
 

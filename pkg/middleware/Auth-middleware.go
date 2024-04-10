@@ -1,13 +1,16 @@
 package middleware
 
 import (
+	"log"
+
 	"github.com/gin-gonic/gin"
 	"github.com/mananKoyawala/hotel-management-system/pkg/helpers"
+	"github.com/mananKoyawala/hotel-management-system/pkg/models"
 	"github.com/mananKoyawala/hotel-management-system/pkg/utils"
 )
 
 // access_type ...models.Access_Type
-func Authentication() gin.HandlerFunc {
+func Authentication(access_type ...models.Access_Type) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		clientToken := c.Request.Header.Get("X-Auth-Token")
 
@@ -24,18 +27,18 @@ func Authentication() gin.HandlerFunc {
 			return
 		}
 
-		// accessMap := make(map[models.Access_Type]bool)
-		// for _, access := range access_type {
-		// 	accessMap[access] = true
-		// }
-		// log.Println(claims.Access_Type)
-		// log.Println(access_type)
-		// // Check if the access type from claims matches any of the allowed access types
-		// if !accessMap[models.Access_Type(claims.Access_Type)] {
-		// 	utils.Error(c, utils.Unauthorized, "Unauthorized access")
-		// 	c.Abort()
-		// 	return
-		// }
+		accessMap := make(map[models.Access_Type]bool)
+		for _, access := range access_type {
+			accessMap[access] = true
+		}
+		log.Println(claims.Access_Type)
+		log.Println(access_type)
+		// Check if the access type from claims matches any of the allowed access types
+		if !accessMap[models.Access_Type(claims.Access_Type)] {
+			utils.Error(c, utils.Unauthorized, "Unauthorized access")
+			c.Abort()
+			return
+		}
 
 		c.Set("email", claims.Email)
 		c.Set("first_name", claims.First_name)

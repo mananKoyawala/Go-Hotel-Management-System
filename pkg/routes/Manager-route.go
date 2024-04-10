@@ -3,24 +3,26 @@ package routes
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/mananKoyawala/hotel-management-system/pkg/controllers"
+	"github.com/mananKoyawala/hotel-management-system/pkg/middleware"
+	"github.com/mananKoyawala/hotel-management-system/pkg/models"
 )
 
 func ManagerRoutes(r *gin.Engine) {
 	manager := r.Group("/manager")
 	{
-		// * Admin
-		// r.Use(middleware.Authentication())
-		manager.GET("/getall", controllers.GetManagers())
-		manager.POST("/create", controllers.CreateManager())
-		manager.PATCH("/update-status/:id", controllers.UpdateManagerStatus())
-		manager.PUT("/update-all/:id", controllers.UpdateManagerDetails())
 		manager.POST("/login", controllers.ManagerLoign())
-		manager.DELETE("/delete/:id", controllers.DeleteManager())
-		manager.GET("/get/:id", controllers.GetManager())
-		manager.PATCH("/update-password", controllers.ResetManagerPassword())
-		manager.PATCH("/update-profile-pic/:id", controllers.UpdateManagerProfilePicture())
-		manager.POST("/search", controllers.SearchManagerData()) // search by first_name , last_name and gender
-		manager.POST("/filter", controllers.FilterManager())     // filter by age, salary and status
+
+		// * Admin
+		manager.GET("/getall", middleware.Authentication(models.A_Acc), controllers.GetManagers())
+		manager.POST("/create", middleware.Authentication(models.A_Acc), controllers.CreateManager())
+		manager.PATCH("/update-status/:id", middleware.Authentication(models.A_Acc), controllers.UpdateManagerStatus())
+		manager.PUT("/update-all/:id", middleware.Authentication(models.A_Acc), controllers.UpdateManagerDetails())
+		manager.DELETE("/delete/:id", middleware.Authentication(models.A_Acc), controllers.DeleteManager())
+		manager.GET("/get/:id", middleware.Authentication(models.A_Acc), controllers.GetManager())
+		manager.PATCH("/update-password", middleware.Authentication(models.A_Acc), controllers.ResetManagerPassword())
+		manager.PATCH("/update-profile-pic/:id", middleware.Authentication(models.A_Acc), controllers.UpdateManagerProfilePicture())
+		manager.POST("/search", middleware.Authentication(models.A_Acc), controllers.SearchManagerData()) // search by first_name , last_name and gender
+		manager.POST("/filter", middleware.Authentication(models.A_Acc), controllers.FilterManager())     // filter by age, salary and status
 
 	}
 }

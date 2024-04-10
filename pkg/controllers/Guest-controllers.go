@@ -193,7 +193,7 @@ func GuestSignup() gin.HandlerFunc {
 		guest.Password = password
 
 		// generate id, timestamps
-		guest.Access_Type = models.Guest_Access
+		guest.Access_Type = models.G_Acc
 		guest.ID = primitive.NewObjectID()
 		guest.Guest_id = guest.ID.Hex()
 		guest.IsVerified = "false"

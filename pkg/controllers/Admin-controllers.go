@@ -79,7 +79,7 @@ func CreateAdmin() gin.HandlerFunc {
 
 		admin.ID = primitive.NewObjectID()
 		admin.Admin_id = admin.ID.Hex()
-		admin.Access_Type = models.Admin_Access
+		admin.Access_Type = models.A_Acc
 		admin.Created_at, _ = helpers.GetTime()
 		admin.Updated_at, _ = helpers.GetTime()
 

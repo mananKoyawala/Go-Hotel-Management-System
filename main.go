@@ -30,6 +30,10 @@ func main() {
 	})
 
 	// server.GET("/email", emailverification.SendMail())
+
+	routes.AdminRoutes(server)
+	routes.ManagerRoutes(server)
+	routes.BranchRoutes(server)
 	routes.ReservationRoutes(server)
 	routes.PickupServiceRoutes(server)
 	routes.DriverRoutes(server)
@@ -37,9 +41,6 @@ func main() {
 	routes.FeedbackRoutes(server)
 	routes.GuestRoutes(server)
 	routes.RoomRoutes(server)
-	routes.AdminRoutes(server)
-	routes.ManagerRoutes(server)
-	routes.BranchRoutes(server)
 	color.Red("Please not that when you create the guest please make sure that u enter the correct email address otherwise problem occurs beacuse email can false.")
 	server.Run(":" + PORT)
 }

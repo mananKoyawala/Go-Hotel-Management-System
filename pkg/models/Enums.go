@@ -18,10 +18,10 @@ const (
 type Access_Type string
 
 const (
-	Admin_Access   Access_Type = "admin"
-	Manager_Access Access_Type = "manager"
-	Guest_Access   Access_Type = "guest"
-	Driver_Access  Access_Type = "driver"
+	A_Acc Access_Type = "admin"   // Admin_Access
+	M_Acc Access_Type = "manager" // Manager_Access
+	G_Acc Access_Type = "guest"   // Guest_Access
+	D_Acc Access_Type = "driver"  // Driver_Access
 )
 
 // ? GuestFeedback enums
