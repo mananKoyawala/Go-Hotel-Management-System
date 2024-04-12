@@ -1,8 +1,6 @@
 package middleware
 
 import (
-	"log"
-
 	"github.com/gin-gonic/gin"
 	"github.com/mananKoyawala/hotel-management-system/pkg/helpers"
 	"github.com/mananKoyawala/hotel-management-system/pkg/models"
@@ -31,11 +29,11 @@ func Authentication(access_type ...models.Access_Type) gin.HandlerFunc {
 		for _, access := range access_type {
 			accessMap[access] = true
 		}
-		log.Println(claims.Access_Type)
-		log.Println(access_type)
+		// log.Println(claims.Access_Type)
+		// log.Println(access_type)
 		// Check if the access type from claims matches any of the allowed access types
 		if !accessMap[models.Access_Type(claims.Access_Type)] {
-			utils.Error(c, utils.Unauthorized, "Unauthorized access")
+			utils.Error(c, utils.Unauthorized, "Unauthorized access to "+claims.Access_Type)
 			c.Abort()
 			return
 		}
