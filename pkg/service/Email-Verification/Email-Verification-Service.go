@@ -184,7 +184,7 @@ func sendMail(link, userEmail string) error {
 	client := resend.NewClient(RESEND_API_KEY)
 
 	params := &resend.SendEmailRequest{
-		From:    "onboarding@resend.dev",
+		From:    "yourown@gmail.com",
 		To:      []string{userEmail},
 		Subject: "Email verification",
 		Html: `<!DOCTYPE html>

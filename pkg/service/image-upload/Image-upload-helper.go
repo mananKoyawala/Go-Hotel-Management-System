@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -17,10 +18,13 @@ import (
 
 var ctx = context.Background()
 var opt = option.WithCredentialsFile("pkg/service/image-upload/serviceAccountKey.json") // Replace with your service account key path
-var config = &firebase.Config{StorageBucket: "golangwithfirebase.appspot.com"}          // Replace with your Firebase Storage bucket name
+// Replace with your Firebase Storage bucket name
 // TODO : Change the serviceAccountKey.json with your file
 
 func UploadService(file io.Reader, foldername string, filename string) (string, error) {
+
+	BUCKET_NAME := os.Getenv("FIREBASE_BUCKET_NAME")
+	var config = &firebase.Config{StorageBucket: BUCKET_NAME}
 
 	path := "hotelmanagement/" + foldername + "/" + filename
 
@@ -54,13 +58,15 @@ func UploadService(file io.Reader, foldername string, filename string) (string, 
 		return "", err
 	}
 
-	url := fmt.Sprintf("https://storage.googleapis.com/golangwithfirebase.appspot.com/hotelmanagement/%s/%s", foldername, filename)
+	url := fmt.Sprintf("https://storage.googleapis.com/%s/hotelmanagement/%s/%s", BUCKET_NAME, foldername, filename)
 
 	return url, nil
 }
 
 func DeleteService(filename string) error {
 
+	BUCKET_NAME := os.Getenv("FIREBASE_BUCKET_NAME")
+	var config = &firebase.Config{StorageBucket: BUCKET_NAME}
 	app, err := firebase.NewApp(ctx, config, opt)
 	if err != nil {
 		return err

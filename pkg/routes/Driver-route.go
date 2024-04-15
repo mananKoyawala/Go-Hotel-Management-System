@@ -27,8 +27,8 @@ func DriverRoutes(r *gin.Engine) {
 		driver.PATCH("/update-availability/:id", middleware.Authentication(models.D_Acc), controllers.UpdateDriverAvailability()) // status is changed based on reservation
 
 		// * Admin , Manager
-		driver.POST("/search", middleware.Authentication(models.M_Acc, models.A_Acc), controllers.SearchDriverData())                                      // search by first_name , last_name , gender, car_company, car_model and car_number_plate
-		driver.POST("/filter", middleware.Authentication(models.M_Acc, models.A_Acc), middleware.Authentication(models.D_Acc), controllers.FilterDriver()) // filter by availability, state, salary
+		driver.POST("/search", middleware.Authentication(models.M_Acc, models.A_Acc), controllers.SearchDriverData()) // search by first_name , last_name , gender, car_company, car_model and car_number_plate
+		driver.POST("/filter", middleware.Authentication(models.M_Acc, models.A_Acc), controllers.FilterDriver())     // filter by availability, state, salary
 
 	}
 }

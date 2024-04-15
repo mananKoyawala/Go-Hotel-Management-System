@@ -11,7 +11,6 @@ func RoomRoutes(r *gin.Engine) {
 	room := r.Group("/room")
 	{
 		// * ALL
-		// r.Use(middleware.Authentication())
 		room.GET("/getall", controllers.GetRooms())
 		room.GET("/getall/:id", controllers.GetRoomsByBranch()) // By Branch id only
 		room.GET("/get/:id", controllers.GetRoom())
