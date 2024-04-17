@@ -185,7 +185,7 @@ Hotel management system is Backend project completely written in **GO (Golang)**
   - **Method**: POST
   - **Endpoint**: `http://localhost:8000/branch/search`
   - **Access**: Public
-  - **Search by**: Branch Name, Address, Status, City, State, Country as search (Form Field)
+  - **Search by**: branch_name, address, status, city, state, country as `search` (Form Field)
   - **Pagination**: `recordPerPage` (default: 10), `page` (default: 1)
 
 - **Filter Branch**:
@@ -338,7 +338,7 @@ Hotel management system is Backend project completely written in **GO (Golang)**
   - **Method**: POST
   - **Endpoint**: `http://localhost:8000/manager/search`
   - **Access**: Admin Only
-  - **Search by**: First Name, Last Name, Gender
+  - **Search by**: first_name, last_name, gender as `search` (Form Field)
   - **Pagination**: `recordPerPage` (default: 10), `page` (default: 1)
 
 - **Filter Managers**:
@@ -494,7 +494,7 @@ Hotel management system is Backend project completely written in **GO (Golang)**
   - **Method**: POST
   - **Endpoint**: `http://localhost:8000/driver/search`
   - **Access**: Manager, Admin
-  - **Search by**: First Name, Last Name, Gender, Car Company, Car Model, Car Number Plate
+  - **Search by**: first_name, last_name, gender, car_company, car_model, car_number_plate as `search` (Form Field)
   - **Pagination**: `recordPerPage` (default: 10), `page` (default: 1)
 
 - **Filter Driver**:
@@ -569,7 +569,7 @@ Hotel management system is Backend project completely written in **GO (Golang)**
   - **Method**: POST
   - **Endpoint**: `http://localhost:8000/staff/search`
   - **Access**: Manager
-  - **Search by**: First Name, Last Name, Gender
+  - **Search by**: first_name, last_name, gender as `search` (Form Field)
   - **Pagination**: `recordPerPage` (default: 10), `page` (default: 1)
 
 - **Filter Staff**:
